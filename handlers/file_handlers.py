@@ -265,90 +265,117 @@ async def index_range_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     total_to_scan = end_id - start_id + 1
-    if total_to_scan > 500:
+    if total_to_scan > 1000:
         await message.reply_text(
             f"⚠️ **Range too large ({total_to_scan} messages).**\n"
-            f"To prevent Telegram rate-limits, please scan up to 500 messages at a time (e.g. `/index_range {start_id} {start_id + 499}`).",
+            f"Please scan up to 1,000 messages at a time (e.g. `/index_range {start_id} {start_id + 999}`).",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    db: Database = context.bot_data["db"]
+
+    # Instantly identify which messages in the range are already registered
+    existing_ids = await db.get_existing_message_ids_in_range(STORAGE_CHANNEL_ID, start_id, end_id)
+    already_indexed = len(existing_ids)
+    ids_to_scan = [m for m in range(start_id, end_id + 1) if m not in existing_ids]
+
+    if not ids_to_scan:
+        await message.reply_text(
+            f"✅ **All {total_to_scan} messages in range `#{start_id}` to `#{end_id}` are already indexed!**\n"
+            f"No new messages to scan.",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
     status_msg = await message.reply_text(
-        f"🔍 **Starting scan in channel `{STORAGE_CHANNEL_ID}`...**\n"
-        f"Scanning messages `#{start_id}` to `#{end_id}` ({total_to_scan} messages).\n"
+        f"⚡ **Starting Fast Channel Scan in `{STORAGE_CHANNEL_ID}`...**\n\n"
+        f"• **Range:** `#{start_id}` to `#{end_id}` ({total_to_scan} total)\n"
+        f"• **Already Indexed:** `{already_indexed}`\n"
+        f"• **Unindexed to Scan:** `{len(ids_to_scan)}`\n\n"
         f"Please wait a moment...",
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    db: Database = context.bot_data["db"]
     new_indexed = 0
-    already_indexed = 0
-    skipped_count = 0
+    semaphore = asyncio.Semaphore(6)
 
-    for msg_id in range(start_id, end_id + 1):
-        # Check if already registered
-        existing = await db.get_file_by_source_message(STORAGE_CHANNEL_ID, msg_id)
-        if existing:
-            already_indexed += 1
-            continue
-
-        fwd = None
-        try:
-            fwd = await context.bot.forward_message(
-                chat_id=user.id,
-                from_chat_id=STORAGE_CHANNEL_ID,
-                message_id=msg_id,
-            )
-        except telegram.error.RetryAfter as r:
-            await asyncio.sleep(r.retry_after + 1)
+    async def scan_single(msg_id: int) -> bool:
+        async with semaphore:
+            fwd = None
             try:
                 fwd = await context.bot.forward_message(
                     chat_id=user.id,
                     from_chat_id=STORAGE_CHANNEL_ID,
                     message_id=msg_id,
                 )
-            except Exception:
-                skipped_count += 1
-                continue
-        except telegram.error.TelegramError:
-            skipped_count += 1
-            continue
+            except telegram.error.RetryAfter as r:
+                await asyncio.sleep(r.retry_after + 1)
+                try:
+                    fwd = await context.bot.forward_message(
+                        chat_id=user.id,
+                        from_chat_id=STORAGE_CHANNEL_ID,
+                        message_id=msg_id,
+                    )
+                except Exception:
+                    return False
+            except telegram.error.TelegramError:
+                return False
 
-        if fwd:
-            media_info = extract_media_details(fwd)
-            if media_info:
-                file_id, file_unique_id, file_type, file_name, file_size = media_info
-                caption = fwd.caption or ""
-                clean_name = smart_clean_filename(file_name or caption)
-                await db.register_file(
-                    file_id=file_id,
-                    file_unique_id=file_unique_id,
-                    file_type=file_type,
-                    file_name=clean_name,
-                    file_size=file_size,
-                    caption=caption,
-                    source_chat_id=STORAGE_CHANNEL_ID,
-                    source_message_id=msg_id,
-                    uploaded_by=user.id,
-                )
-                new_indexed += 1
-            else:
-                skipped_count += 1
+            if fwd:
+                try:
+                    media_info = extract_media_details(fwd)
+                    if media_info:
+                        file_id, file_unique_id, file_type, file_name, file_size = media_info
+                        caption = fwd.caption or ""
+                        clean_name = smart_clean_filename(file_name or caption)
+                        await db.register_file(
+                            file_id=file_id,
+                            file_unique_id=file_unique_id,
+                            file_type=file_type,
+                            file_name=clean_name,
+                            file_size=file_size,
+                            caption=caption,
+                            source_chat_id=STORAGE_CHANNEL_ID,
+                            source_message_id=msg_id,
+                            uploaded_by=user.id,
+                        )
+                        return True
+                finally:
+                    try:
+                        await fwd.delete()
+                    except Exception:
+                        pass
+            return False
 
-            # Delete the temporary forward
+    chunk_size = 50
+    for i in range(0, len(ids_to_scan), chunk_size):
+        chunk = ids_to_scan[i : i + chunk_size]
+        results = await asyncio.gather(*(scan_single(mid) for mid in chunk))
+        new_indexed += sum(1 for r in results if r)
+        processed = min(i + chunk_size, len(ids_to_scan))
+
+        if processed < len(ids_to_scan):
             try:
-                await fwd.delete()
+                await status_msg.edit_text(
+                    f"⚡ **Fast Scanning in `{STORAGE_CHANNEL_ID}`...**\n\n"
+                    f"• **Progress:** `{processed}/{len(ids_to_scan)}` unindexed messages checked\n"
+                    f"• **✨ New Files Found:** `{new_indexed}`\n"
+                    f"• **🔁 Already in Catalog:** `{already_indexed}`",
+                    parse_mode=ParseMode.MARKDOWN,
+                )
             except Exception:
                 pass
+        await asyncio.sleep(0.3)
 
-        await asyncio.sleep(0.08)
+    skipped_count = len(ids_to_scan) - new_indexed
 
     await status_msg.edit_text(
-        f"✅ **Channel Scan Complete!**\n\n"
+        f"✅ **Fast Channel Scan Complete!**\n\n"
         f"• **Channel:** `{STORAGE_CHANNEL_ID}`\n"
         f"• **Range Scanned:** `#{start_id}` to `#{end_id}` ({total_to_scan} messages)\n"
         f"• **✨ New Files Indexed:** `{new_indexed}`\n"
-        f"• **🔁 Already in Database:** `{already_indexed}`\n"
+        f"• **🔁 Already in Catalog:** `{already_indexed}`\n"
         f"• **⏭️ Non-Media / Deleted:** `{skipped_count}`\n\n"
         f"Use `/stats` to view your total file catalog.",
         parse_mode=ParseMode.MARKDOWN,

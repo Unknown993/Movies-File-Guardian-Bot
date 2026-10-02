@@ -3,3 +3,4 @@ python-dotenv>=1.0.0
 aiosqlite>=0.20.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+telethon>=1.36.0

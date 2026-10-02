@@ -9,7 +9,7 @@ import time
 import secrets
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Set
 import aiosqlite
 
 from config import (
@@ -218,6 +218,16 @@ class Database:
             ) as cur:
                 row = await cur.fetchone()
                 return dict(row) if row else None
+
+    async def get_existing_message_ids_in_range(self, source_chat_id: int, start_id: int, end_id: int) -> Set[int]:
+        """Fetch all message IDs already registered in a specific channel within a given range."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT source_message_id FROM files WHERE source_chat_id = ? AND source_message_id BETWEEN ? AND ?;",
+                (source_chat_id, start_id, end_id),
+            ) as cur:
+                rows = await cur.fetchall()
+                return {row[0] for row in rows if row[0] is not None}
 
     async def get_file_by_unique_id(self, file_unique_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve stored file record by Telegram file_unique_id."""

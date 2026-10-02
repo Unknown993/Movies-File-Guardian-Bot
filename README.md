@@ -115,7 +115,9 @@ DATABASE_PATH=bot_database.sqlite3
 ### Admin Commands (Admins & Developer)
 * `/get_mode` or `/mode` - Display active delivery strategy, timer, and current settings.
 * `/stats` - View database statistics (registered files, total access events, pending deletions).
-* `/index_range <start_id> <end_id>` - Bulk scan and register a range of messages in your storage channel (e.g. `/index_range 1 100`).
+* `/index_range <start_id> <end_id>` - Fast concurrent scan and register up to 1,000 messages (e.g. `/index_range 1 500`).
+* **CLI Fast Indexer (`fast_index.py`):** Index files directly from CMD without Telegram chat limits: `.venv\Scripts\python.exe fast_index.py 1 1000`.
+* **Full-Channel History Exporter (`telethon_indexer.py`):** Index thousands of channel files automatically via Telegram MTProto in seconds.
 * **Auto-Index Channel Posts:** Any new file or media message posted to your configured `STORAGE_CHANNEL_ID` is automatically registered and the developer is sent the share link in their DM.
 * **Upload Media:** Send or forward any file (Document, Video, Audio, Photo, Voice, GIF) directly to the bot to generate a secure shareable deep-link (`t.me/<bot_username>?start=file_<code>`).
 
