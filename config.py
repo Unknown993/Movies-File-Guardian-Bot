@@ -79,6 +79,42 @@ def _normalize_channel_id(val: str) -> Optional[int]:
 
 STORAGE_CHANNEL_ID: Optional[int] = _normalize_channel_id(_storage_id_raw)
 
+# Dedicated Operational Log Channel (ONLY work-related logs: NewUser, NewGroup, VIP/Payments, Requests, Errors; NEVER file indexing)
+_log_channel_raw = os.getenv("LOG_CHANNEL", "").strip()
+LOG_CHANNEL: Optional[int] = _normalize_channel_id(_log_channel_raw)
+
+_premium_logs_raw = os.getenv("PREMIUM_LOGS", "").strip()
+PREMIUM_LOGS: Optional[int] = _normalize_channel_id(_premium_logs_raw) or LOG_CHANNEL
+
+_reqst_channel_raw = os.getenv("REQST_CHANNEL_ID", "").strip()
+REQST_CHANNEL_ID: Optional[int] = _normalize_channel_id(_reqst_channel_raw) or LOG_CHANNEL
+
+_support_chat_raw = os.getenv("SUPPORT_CHAT_ID", "").strip()
+SUPPORT_CHAT_ID: Optional[int] = _normalize_channel_id(_support_chat_raw)
+
+# Links & Payment Info (from Premium_Guardian)
+GRP_LNK: str = os.getenv("GRP_LNK", "https://t.me/")
+UPDATE_CHNL_LNK: str = os.getenv("UPDATE_CHNL_LNK", "https://t.me/")
+OWNER_LNK: str = os.getenv("OWNER_LNK", "https://t.me/Unknown993")
+OWNER_UPI_ID: str = os.getenv("OWNER_UPI_ID", "Not configured (Use Telegram Stars ⭐ for Instant Auto-Activation)")
+QR_CODE: str = os.getenv("QR_CODE", "https://graph.org/file/99eebf5dbe8a134f548e0.jpg")
+
+# Auto-Filter Qualities, Languages, and Seasons (from Premium_Guardian)
+QUALITIES = ["360P", "480P", "720P", "1080P", "1440P", "2160P", "4K"]
+LANGUAGES = {
+    "Hɪɴᴅɪ": "hindi",
+    "Eɴɢʟɪsʜ": "english",
+    "Tᴀᴍɪʟ": "tamil",
+    "Tᴇʟᴜɢᴜ": "telugu",
+    "Mᴀʟᴀʏᴀʟᴀᴍ": "malayalam",
+    "Kᴀɴɴᴀᴅᴀ": "kannada",
+    "Gᴜᴊᴀʀᴀᴛɪ": "gujarati",
+    "Mᴀʀᴀᴛʜɪ": "marathi",
+    "Pᴜɴᴊᴀʙɪ": "punjabi",
+    "Dᴜᴀʟ Aᴜᴅɪᴏ": "dual",
+}
+SEASONS = [f"S{str(i).zfill(2)}" for i in range(1, 13)]
+
 # Dedicated temporary download channels allowed for Mode 2 delivery
 ALLOWED_TEMP_CHANNELS: Set[int] = _parse_int_set(os.getenv("ALLOWED_TEMP_CHANNELS"))
 
@@ -149,12 +185,73 @@ DEFAULT_PAYWALL_ENABLED: bool = _paywall_env in ("1", "true", "yes", "on")
 
 PAYWALL_ALERT_TEXT: str = os.getenv(
     "PAYWALL_ALERT_TEXT",
-    "🔒 <b>Premium Access Required</b>\n\n"
-    "Hey {name}, this bot is currently operating in <b>Paid Members Only</b> mode.\n\n"
-    "✨ <b>Subscriber Privileges:</b>\n"
-    "• ⚡ Instant high-speed file delivery\n"
-    "• 📂 Access to all stored & indexed files\n"
-    "• 🔍 Unlimited keyword & auto-filter searches\n"
-    "• 🚫 Zero ads, no waiting timers\n\n"
-    "💎 Tap below to get instant automated access via Telegram Stars ⭐!"
+    "🔒 <b><u>ᴘʀᴇᴍɪᴜᴍ ᴀᴄᴄᴇꜱꜱ ʀᴇǫᴜɪʀᴇᴅ</u></b>\n\n"
+    "👋 ʜᴇʏ {name}, ᴛʜɪꜱ ʙᴏᴛ ɪꜱ ᴄᴜʀʀᴇɴᴛʟʏ ɪɴ <b><u>ᴘᴀɪᴅ ᴍᴇᴍʙᴇʀꜱ ᴏɴʟʏ</u></b> ᴍᴏᴅᴇ.\n\n"
+    "✨ <b><u>ᴘʀᴇᴍɪᴜᴍ ʙᴇɴᴇꜰɪᴛꜱ:</u></b>\n"
+    "• ⚡ ɪɴꜱᴛᴀɴᴛ ᴅɪʀᴇᴄᴛ ꜰɪʟᴇꜱ (ɴᴏ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ ʟɪɴᴋꜱ)\n"
+    "• 📂 ᴜɴʟɪᴍɪᴛᴇᴅ ᴍᴏᴠɪᴇꜱ & ꜱᴇʀɪᴇꜱ ᴅᴏᴡɴʟᴏᴀᴅꜱ\n"
+    "• 🖥️ ʜɪɢʜ-ꜱᴘᴇᴇᴅ ᴏɴʟɪɴᴇ ꜱᴛʀᴇᴀᴍɪɴɢ\n"
+    "• 🚫 100% ᴀᴅ-ꜰʀᴇᴇ ᴇxᴘᴇʀɪᴇɴᴄᴇ\n\n"
+    "💳 ꜱᴇʟᴇᴄᴛ ᴀ ᴘʟᴀɴ ʙᴇʟᴏᴡ ꜰᴏʀ <b><u>ɪɴꜱᴛᴀɴᴛ ᴀᴜᴛᴏᴍᴀᴛɪᴄ ᴀᴄᴛɪᴠᴀᴛɪᴏɴ</u></b> ᴠɪᴀ ᴛᴇʟᴇɢʀᴀᴍ ꜱᴛᴀʀꜱ ⭐!"
 )
+
+
+def get_ist_greeting() -> str:
+    """Return time-of-day greeting in Asia/Kolkata (IST) matching Premium_Guardian."""
+    from datetime import datetime, timezone, timedelta
+    ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    hour = ist_now.hour
+    if 5 <= hour < 12:
+        return "Gᴏᴏᴅ Mᴏʀɴɪɴɢ 🌞"
+    elif 12 <= hour < 17:
+        return "Gᴏᴏᴅ Aғᴛᴇʀɴᴏᴏɴ ☀️"
+    elif 17 <= hour < 21:
+        return "Gᴏᴏᴅ Eᴠᴇɴɪɴɢ 🌇"
+    else:
+        return "Gᴏᴏᴅ Nɪɢʜᴛ 🌙"
+
+
+async def send_work_log(
+    bot,
+    db,
+    text: str,
+    reply_markup=None,
+    channel_override: Optional[int] = None,
+) -> None:
+    """
+    Send strictly work-related operational logs to LOG_CHANNEL (or dynamic DB log_channel).
+    Never sends file indexing or file registration logs.
+    """
+    if not bot or not text:
+        return
+
+    # Guard: never send file indexing or file registration events to log channel
+    lowered = text.lower()
+    if "auto-registered" in lowered or "file indexed" in lowered or "indexed file" in lowered:
+        return
+
+    target_channel = channel_override
+    if not target_channel and db is not None and hasattr(db, "get_log_channel"):
+        try:
+            target_channel = await db.get_log_channel()
+        except Exception:
+            target_channel = LOG_CHANNEL
+    if not target_channel:
+        target_channel = LOG_CHANNEL
+
+    if not target_channel:
+        return
+
+    try:
+        from telegram.constants import ParseMode
+        await bot.send_message(
+            chat_id=target_channel,
+            text=text,
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+        )
+    except Exception:
+        pass
+
+

@@ -124,7 +124,7 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
             )
             source_chat_id = STORAGE_CHANNEL_ID
             source_message_id = stored_msg.message_id
-            logger.info("Mirrored file to storage channel %s (msg: %s)", STORAGE_CHANNEL_ID, source_message_id)
+            logger.debug("Mirrored file to storage channel %s (msg: %s)", STORAGE_CHANNEL_ID, source_message_id)
         except Exception as e:
             logger.warning("Could not mirror file to storage channel: %s. Using direct chat source.", e)
     elif fwd_chat_id is not None:
@@ -200,7 +200,7 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def handle_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Automatically handle incoming media posts in the configured storage channel.
-    Indexes the file into the database and notifies the developer.
+    Silently indexes the file into the database without sending any channel or log noise.
     """
     post = update.channel_post
     if not post:
@@ -221,10 +221,8 @@ async def handle_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Check if already registered
     existing = await db.get_file_by_source_message(post.chat_id, post.message_id)
     clean_name = smart_clean_filename(file_name or caption)
-    if existing:
-        file_code = existing["file_code"]
-    else:
-        file_code = await db.register_file(
+    if not existing:
+        await db.register_file(
             file_id=file_id,
             file_unique_id=file_unique_id,
             file_type=file_type,
@@ -234,12 +232,6 @@ async def handle_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE
             source_chat_id=post.chat_id,
             source_message_id=post.message_id,
             uploaded_by=DEVELOPER_ID or 0,
-        )
-        logger.info(
-            "Auto-registered new channel post %s from channel %s as code %s",
-            post.message_id,
-            post.chat_id,
-            file_code,
         )
 
 async def index_range_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

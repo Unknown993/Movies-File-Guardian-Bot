@@ -1,28 +1,48 @@
 """
 Script templates and formatted texts for Telegram Bot.
-Matches the styling, buttons, and characterstics of MR.Guardian_bot / Professor-Bot.
+Matches the detailed styling, buttons, and characteristics of Premium_Guardian & MR.Guardian_bot.
 """
 
 class Script:
-    START_TXT = """<b>✨ Hᴇʟʟᴏ {user}!
+    START_TXT = """<b>✨ Hᴇʟʟᴏ {user}! {wish}
 
-Mʏ Nᴀᴍᴇ Is {bot}.
+🤖 Mʏ Nᴀᴍᴇ Is {bot}.
 
-I ᴄᴀɴ ᴘʀᴏᴠɪᴅᴇ ᴀɴʏ ғɪʟᴇs ғᴏʀ ʏᴏᴜ. Jᴜsᴛ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴏʀ sᴇᴀʀᴄʜ ᴅɪʀᴇᴄᴛʟʏ ʜᴇʀᴇ!</b>"""
+🎬 I ᴄᴀɴ ᴘʀᴏᴠɪᴅᴇ ᴍᴏᴠɪᴇs, sᴇʀɪᴇs, ᴀɴᴅ ᴀɴʏ ғɪʟᴇs ғᴏʀ ʏᴏᴜ ɪɴsᴛᴀɴᴛʟʏ!
+⚡ Jᴜsᴛ ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ɢʀᴏᴜᴘ ᴏʀ sᴇᴀʀᴄʜ ᴅɪʀᴇᴄᴛʟʏ ʜᴇʀᴇ!</b>"""
 
     HELP_TXT = """<b>Hᴇʏ {user} 👋
-Hᴇʀᴇ Is Mʏ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ ᴇxᴘʟᴏʀᴇ ғᴇᴀᴛᴜʀᴇs:</b>"""
+Hᴇʀᴇ Is Mʏ Dᴇᴛᴀɪʟᴇᴅ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢᴏʀʏ ʙᴇʟᴏᴡ ᴛᴏ ᴇxᴘʟᴏʀᴇ ᴀʟʟ ғᴇᴀᴛᴜʀᴇs:</b>"""
 
-    ABOUT_TXT = """<b>✯ Mʏ Nᴀᴍᴇ: {bot}
-✯ Dᴇᴠᴇʟᴏᴘᴇʀ: <a href="https://t.me/Unknown993">Mr. Guardian</a>
-✯ Cᴏᴅᴇᴅ Oɴ: Python / Python-Telegram-Bot
-✯ Mʏ Dᴀᴛᴀʙᴀsᴇ: SQLite3 (Async)
-✯ Cᴏɴᴛᴇɴᴛ Pʀᴏᴛᴇᴄᴛɪᴏɴ: Active (Dual Mode)
-✯ Vᴇʀsɪᴏɴ: TeleBot v4.6 (2026)</b>"""
+    ABOUT_TXT = """<b>╔════❰ 🤖 Aʙᴏᴜᴛ Bᴏᴛ ❱═❍⊱❁۪۪
+║╭━━━━━━━━━━━━━━━➣
+║┣⪼ ✯ Mʏ Nᴀᴍᴇ: {bot}
+║┣⪼ ✯ Dᴇᴠᴇʟᴏᴘᴇʀ: <a href="https://t.me/Unknown993">Mʀ. Gᴜᴀʀᴅɪᴀɴ</a>
+║┣⪼ ✯ Lᴀɴɢᴜᴀɢᴇ: Pʏᴛʜᴏɴ 3
+║┣⪼ ✯ Fʀᴀᴍᴇᴡᴏʀᴋ: PTB + MTProto Hʏʙʀɪᴅ
+║┣⪼ ✯ Dᴀᴛᴀʙᴀsᴇ: SQLite3 WAL (Asʏɴᴄ)
+║┣⪼ ✯ Pʀᴏᴛᴇᴄᴛɪᴏɴ: Aᴄᴛɪᴠᴇ (Dᴜᴀʟ Mᴏᴅᴇ)
+║┣⪼ ✯ Vᴇʀsɪᴏɴ: Gᴜᴀʀᴅɪᴀɴ Pʀᴏ v5.0
+║╰━━━━━━━━━━━━━━━➣
+╚══════════════════❍⊱❁۪۪</b>"""
 
-    SOURCE_TXT = """<b>NOTE:</b>
-- Sᴏᴜʀᴄᴇ Cᴏᴅᴇ: <a href="https://github.com/Unknown993/PROFESSOR-BOT">PROFESSOR-BOT / TeleBot</a>
-- Dᴇᴠᴇʟᴏᴘᴇʀ: <a href="https://t.me/Unknown993">Mr. Guardian</a>"""
+    SOURCE_TXT = """<b>📜 Sᴏᴜʀᴄᴇ & Cʀᴇᴅɪᴛs:</b>
+• <b>Rᴇᴘᴏsɪᴛᴏʀʏ:</b> <a href="https://github.com/Unknown993/Movies-File-Guardian-Bot">Mᴏᴠɪᴇs Fɪʟᴇ Gᴜᴀʀᴅɪᴀɴ Bᴏᴛ</a>
+• <b>Dᴇᴠᴇʟᴏᴘᴇʀ:</b> <a href="https://t.me/Unknown993">Mʀ. Gᴜᴀʀᴅɪᴀɴ</a>"""
+
+    DISCLAIMER_TXT = """<b>⚠️ <u>Dɪsᴄʟᴀɪᴍᴇʀ & Lᴇɢᴀʟ Nᴏᴛɪᴄᴇ</u></b>
+
+• Tʜɪs ʙᴏᴛ ɪs ᴀɴ ᴀᴜᴛᴏᴍᴀᴛᴇᴅ sᴇᴀʀᴄʜ & ɪɴᴅᴇxɪɴɢ ᴛᴏᴏʟ.
+• Wᴇ ᴅᴏ ɴᴏᴛ ʜᴏsᴛ ᴏʀ ᴜᴘʟᴏᴀᴅ ᴀɴʏ ᴄᴏᴘʏʀɪɢʜᴛᴇᴅ ғɪʟᴇs ᴏɴ ᴏᴜʀ sᴇʀᴠᴇʀs; ᴛʜᴇ ʙᴏᴛ ᴏɴʟʏ ɪɴᴅᴇxᴇs ғɪʟᴇs ᴀʟʀᴇᴀᴅʏ ᴀᴠᴀɪʟᴀʙʟᴇ ᴏɴ Tᴇʟᴇɢʀᴀᴍ.
+• Iғ ʏᴏᴜ ᴀʀᴇ ᴀ ᴄᴏᴘʏʀɪɢʜᴛ ᴏᴡɴᴇʀ ᴀɴᴅ ᴡɪsʜ ᴛᴏ ʀᴇᴍᴏᴠᴇ ᴀɴʏ ᴄᴏɴᴛᴇɴᴛ, ᴘʟᴇᴀsᴇ ᴄᴏɴᴛᴀᴄᴛ ᴛʜᴇ ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀ."""
+
+    DONATION_TXT = """<b>💖 <u>Sᴜᴘᴘᴏʀᴛ & Dᴏɴᴀᴛᴇ</u></b>
+
+Iғ ʏᴏᴜ ᴇɴᴊᴏʏ ᴜsɪɴɢ ᴏᴜʀ ʜɪɢʜ-sᴘᴇᴇᴅ ʙᴏᴛ ᴀɴᴅ ᴡᴀɴᴛ ᴛᴏ ʜᴇʟᴘ ᴋᴇᴇᴘ ᴏᴜʀ sᴇʀᴠᴇʀs ʀᴜɴɴɪɴɢ 24/7:
+• ⭐ <b>Tᴇʟᴇɢʀᴀᴍ Sᴛᴀʀs:</b> Tᴀᴘ <code>/plan</code> ᴛᴏ sᴜᴘᴘᴏʀᴛ ᴀɴᴅ ᴜɴʟᴏᴄᴋ VIP ᴘᴇʀᴋs ɪɴsᴛᴀɴᴛʟʏ!
+• 💳 <b>UPI ID:</b> <code>{upi_id}</code>
+
+<i>Tʜᴀɴᴋ ʏᴏᴜ ғᴏʀ sᴜᴘᴘᴏʀᴛɪɴɢ ᴏᴜʀ ᴄᴏᴍᴍᴜɴɪᴛʏ! ❤️</i>"""
 
     FILE_TXT = """<b>➤ Hᴇʟᴘ Fᴏʀ Fɪʟᴇ Sᴛᴏʀᴇ</b>
 
@@ -75,13 +95,15 @@ Hᴇʀᴇ Is Mʏ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢ�
 
     AUTOFILTER_TXT = """<b>Hᴇʟᴘ Fᴏʀ Aᴜᴛᴏ-Fɪʟᴛᴇʀ</b>
 
-<i>Aᴜᴛᴏ-Fɪʟᴛᴇʀ sᴇᴀʀᴄʜᴇs ʏᴏᴜʀ ᴄᴀᴛᴀʟᴏɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴡʜᴇɴᴇᴠᴇʀ ᴀ ᴜsᴇʀ sᴇɴᴅs ᴀ ɴᴀᴍᴇ ɪɴ ɢʀᴏᴜᴘ ᴏʀ PM.</i>
+<i>Aᴜᴛᴏ-Fɪʟᴛᴇʀ sᴇᴀʀᴄʜᴇs ʏᴏᴜʀ ᴄᴀᴛᴀʟᴏɢ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴡʜᴇɴᴇᴠᴇʀ ᴀ ᴜsᴇʀ sᴇɴᴅs ᴀ ɴᴀᴍᴇ ɪɴ ɢʀᴏᴜᴘ ᴏʀ PM, ᴡɪᴛʜ Qᴜᴀʟɪᴛʏ, Lᴀɴɢᴜᴀɢᴇ, Sᴇᴀsᴏɴ, ᴀɴᴅ Sᴇɴᴅ Aʟʟ ғɪʟᴛᴇʀs!</i>
 
 <b>Cᴏᴍᴍᴀɴᴅs:</b>
 • /search &lt;keyword&gt; - Mᴀɴᴜᴀʟ sᴇᴀʀᴄʜ
-• /set_template &lt;template&gt; - Sᴇᴛ ᴄᴜsᴛᴏᴍ ᴄᴀᴘᴛɪᴏɴ/IMDb ᴛᴇᴍᴘʟᴀᴛᴇ
-• /get_template - Vɪᴇᴡ ᴄᴜʀʀᴇɴᴛ ᴛᴇᴍᴘʟᴀᴛᴇ
-• /settings - Tᴏɢɢʟᴇ ᴀᴜᴛᴏғɪʟᴛᴇʀ ʙᴜᴛᴛᴏɴ ʟᴀʏᴏᴜᴛ & sᴇᴛᴛɪɴɢs"""
+• /top_search ᴏʀ /trendlist - Vɪᴇᴡ ᴛᴏᴘ ᴛʀᴇɴᴅɪɴɢ sᴇᴀʀᴄʜᴇs
+• /set_template &lt;template&gt; - Sᴇᴛ ᴄᴜsᴛᴏᴍ IMDb ᴛᴇᴍᴘʟᴀᴛᴇ
+• /set_caption &lt;caption&gt; - Sᴇᴛ ᴄᴜsᴛᴏᴍ ғɪʟᴇ ᴄᴀᴘᴛɪᴏɴ
+• /settings - Cᴜsᴛᴏᴍɪᴢᴇ 8+ ɢʀᴏᴜᴘ Aᴜᴛᴏ-Fɪʟᴛᴇʀ sᴇᴛᴛɪɴɢs
+• /details - Vɪᴇᴡ ᴀʟʟ ᴄᴜʀʀᴇɴᴛ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs"""
 
     CONNECTION_TXT = """<b>Hᴇʟᴘ Fᴏʀ Cᴏɴɴᴇᴄᴛɪᴏɴs</b>
 
@@ -90,20 +112,32 @@ Hᴇʀᴇ Is Mʏ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢ�
 <b>Cᴏᴍᴍᴀɴᴅs & Usᴀɢᴇ:</b>
 • /connect &lt;group_id&gt; - Cᴏɴɴᴇᴄᴛ ɢʀᴏᴜᴘ ᴛᴏ PM
 • /disconnect - Dɪsᴄᴏɴɴᴇᴄᴛ ғʀᴏᴍ ɢʀᴏᴜᴘ
-• /connections - Iɴᴛᴇʀᴀᴄᴛɪᴠᴇ ᴍᴇɴᴜ ᴛᴏ ᴠɪᴇᴡ & ᴍᴀɴᴀɢᴇ ᴀʟʟ ʏᴏᴜʀ ᴄᴏɴɴᴇᴄᴛɪᴏɴs"""
+• /connections - Iɴᴛᴇʀᴀᴄᴛɪᴠᴇ ᴍᴇɴᴜ ᴛᴏ ᴠɪᴇᴡ & ᴍᴀɴᴀɢᴇ ᴀʟʟ ʏᴏᴜʀ ᴄᴏɴɴᴇᴄᴛɪᴏɴs
+• /reload - Rᴇғʀᴇsʜ ᴀᴅᴍɪɴ ᴄᴏɴɴᴇᴄᴛɪᴏɴ ɪɴ ɢʀᴏᴜᴘ"""
 
     ADMIN_TXT = """<b>⚙️ Hᴇʟᴘ Fᴏʀ Aᴅᴍɪɴs</b>
 
 <i>Tʜɪs ᴍᴏᴅᴜʟᴇ ᴏɴʟʏ ᴡᴏʀᴋs ғᴏʀ Bᴏᴛ Aᴅᴍɪɴs.</i>
 
 <b>Cᴏᴍᴍᴀɴᴅs & Usᴀɢᴇ:</b>
-• /logs - Gᴇᴛ ʀᴇᴄᴇɴᴛ ᴇʀʀᴏʀ ᴀɴᴅ ʀᴜɴᴛɪᴍᴇ ʟᴏɢs
+• /logs - Gᴇᴛ ʀᴇᴄᴇɴᴛ ᴡᴏʀᴋ & ᴇʀʀᴏʀ ʟᴏɢs
 • /delete - Dᴇʟᴇᴛᴇ ᴀ sᴘᴇᴄɪғɪᴄ ғɪʟᴇ (ʀᴇᴘʟʏ ᴏʀ ᴄᴏᴅᴇ)
+• /deletefiles &lt;keyword&gt; - Bᴜʟᴋ ᴅᴇʟᴇᴛᴇ ғɪʟᴇs ᴍᴀᴛᴄʜɪɴɢ ᴋᴇʏᴡᴏʀᴅ
 • /deleteall - Wɪᴘᴇ ᴇɴᴛɪʀᴇ ғɪʟᴇ ᴄᴀᴛᴀʟᴏɢ (Dᴇᴠᴇʟᴏᴘᴇʀ ᴏɴʟʏ)
 • /users - Gᴇᴛ ʟɪsᴛ ᴏғ ᴀʟʟ ʀᴇɢɪsᴛᴇʀᴇᴅ ᴜsᴇʀs ᴀɴᴅ IDs
 • /channel - Lɪsᴛ ᴄᴏɴɴᴇᴄᴛᴇᴅ sᴛᴏʀᴀɢᴇ ᴄʜᴀɴɴᴇʟs
+• /send &lt;user_id&gt; - Rᴇᴘʟʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ ᴛᴏ DM ᴀ specific ᴜsᴇʀ
 • /broadcast - Bʀᴏᴀᴅᴄᴀsᴛ ᴍᴇssᴀɢᴇ ᴛᴏ ᴀʟʟ ᴜsᴇʀs
 • /group_broadcast - Bʀᴏᴀᴅᴄᴀsᴛ ᴍᴇssᴀɢᴇ ᴛᴏ ᴀʟʟ ᴄᴏɴɴᴇᴄᴛᴇᴅ ɢʀᴏᴜᴘs
+• /pm_search &lt;on|off&gt; - Tᴏɢɢʟᴇ ʙᴏᴛ PM sᴇᴀʀᴄʜ
+• /movie_update &lt;on|off&gt; - Tᴏɢɢʟᴇ ᴍᴏᴠɪᴇ ᴜᴘᴅᴀᴛᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴs
+• /del_msg - Cʟᴇᴀʀ ᴛᴏᴘ sᴇᴀʀᴄʜ ʜɪsᴛᴏʀʏ ʟɪsᴛ
+• /add_premium &lt;id&gt; &lt;time&gt; - Gʀᴀɴᴛ VIP ᴀᴄᴄᴇss
+• /remove_premium &lt;id&gt; - Rᴇᴠᴏᴋᴇ VIP ᴀᴄᴄᴇss
+• /get_premium &lt;id&gt; - Iɴsᴘᴇᴄᴛ ᴜsᴇʀ VIP ᴘʟᴀɴ
+• /premium_users - Lɪsᴛ ᴀʟʟ ᴀᴄᴛɪᴠᴇ VIP ᴍᴇᴍʙᴇʀs
+• /add_redeem &lt;time&gt; [count] - Gᴇɴᴇʀᴀᴛᴇ VIP ɢɪғᴛ ᴄᴏᴅᴇs
+• /trial_reset [user_id] - Rᴇsᴇᴛ ғʀᴇᴇ ᴛʀɪᴀʟ ᴇʟɪɢɪʙɪʟɪᴛʏ
 • /leave &lt;chat_id&gt; - Lᴇᴀᴠᴇ ᴀ sᴘᴇᴄɪғɪᴄ ᴄʜᴀᴛ
 • /disable &lt;chat_id&gt; - Dɪsᴀʙʟᴇ ᴀ ᴄʜᴀᴛ
 • /enable &lt;chat_id&gt; - Rᴇ-ᴇɴᴀʙʟᴇ ᴀ ᴅɪsᴀʙʟᴇᴅ ᴄʜᴀᴛ
@@ -111,18 +145,21 @@ Hᴇʀᴇ Is Mʏ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢ�
 • /unban_user &lt;id&gt; - Uɴʙᴀɴ ᴀ ᴜsᴇʀ
 • /clear_junk - Cʟᴇᴀɴ ᴅᴇʟᴇᴛᴇᴅ ᴀɴᴅ ʙʟᴏᴄᴋᴇᴅ ᴀᴄᴄᴏᴜɴᴛs
 • /clear_junk_group - Cʟᴇᴀɴ ᴅᴇᴀᴅ ɢʀᴏᴜᴘs ғʀᴏᴍ ᴅᴀᴛᴀʙᴀsᴇ
-• /fast_index [start] [end] - Hɪɢʜ-sᴘᴇᴇᴅ MTProto ɪɴᴅᴇxᴇʀ (ɴᴏ ᴄʜᴀɴɴᴇʟ ᴘᴏsᴛs)
-• /index_range &lt;start&gt; &lt;end&gt; - Bᴜʟᴋ ɪɴᴅᴇx ᴄʜᴀɴɴᴇʟ ᴍᴇssᴀɢᴇs
+• /fast_index [start] [end] - Hɪɢʜ-sᴘᴇᴇᴅ MTProto ɪɴᴅᴇxᴇʀ
 • /stop_index - Sᴛᴏᴘ ᴀɴʏ ʀᴜɴɴɪɴɢ ᴄʜᴀɴɴᴇʟ ɪɴᴅᴇxɪɴɢ
+• /resetallgroup - Rᴇsᴇᴛ ᴀʟʟ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs
 • /restart - Rᴇsᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ"""
 
-    STATUS_TXT = """<b>❄️ Bᴏᴛ & Dᴀᴛᴀʙᴀsᴇ Sᴛᴀᴛᴜs:</b>
-
-◉ <b>Tᴏᴛᴀʟ Fɪʟᴇs:</b> <code>{files}</code>
-◉ <b>Tᴏᴛᴀʟ Usᴇʀs:</b> <code>{users}</code>
-◉ <b>Tᴏᴛᴀʟ Gʀᴏᴜᴘs:</b> <code>{chats}</code>
-◉ <b>Dᴀᴛᴀʙᴀsᴇ Sɪᴢᴇ:</b> <code>{db_size}</code>
-◉ <b>Uᴘᴛɪᴍᴇ:</b> <code>{uptime}</code>"""
+    STATUS_TXT = """<b>╔════❰ ❄️ Bᴏᴛ & DB Sᴛᴀᴛᴜs ❱═❍⊱❁۪۪
+║╭━━━━━━━━━━━━━━━➣
+║┣⪼ 📁 Tᴏᴛᴀʟ Fɪʟᴇs: <code>{files}</code>
+║┣⪼ 👤 Tᴏᴛᴀʟ Usᴇʀs: <code>{users}</code>
+║┣⪼ 👥 Tᴏᴛᴀʟ Gʀᴏᴜᴘs: <code>{chats}</code>
+║┣⪼ 💎 VIP Mᴇᴍʙᴇʀs: <code>{premiums}</code>
+║┣⪼ 🗄️ DB Sɪᴢᴇ: <code>{db_size}</code>
+║┣⪼ ⏱️ Uᴘᴛɪᴍᴇ: <code>{uptime}</code>
+║╰━━━━━━━━━━━━━━━➣
+╚══════════════════❍⊱❁۪۪</b>"""
 
     SERVER_STATS = """<b>🖥️ Sᴇʀᴠᴇʀ Rᴇsᴏᴜʀᴄᴇ Sᴛᴀᴛs:</b>
 
@@ -135,30 +172,36 @@ Hᴇʀᴇ Is Mʏ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢ�
 
     GROUPMANAGER_TXT = """<b>🛡️ Hᴇʟᴘ Fᴏʀ Gʀᴏᴜᴘ Mᴀɴᴀɢᴇʀ</b>
 
-<i>Mᴏᴅᴇʀᴀᴛɪᴏɴ ᴛᴏᴏʟs ғᴏʀ ɢʀᴏᴜᴘ ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs:</i>
+<i>Mᴏᴅᴇʀᴀᴛɪᴏɴ & ᴄᴏɴғɪɢᴜʀᴀᴛɪᴏɴ ᴛᴏᴏʟs ғᴏʀ ɢʀᴏᴜᴘ ᴀᴅᴍɪɴɪsᴛʀᴀᴛᴏʀs:</i>
 
 <b>Cᴏᴍᴍᴀɴᴅs & Usᴀɢᴇ:</b>
-• /ban - Bᴀɴ ᴀ ᴜsᴇʀ ғʀᴏᴍ ᴛʜᴇ ɢʀᴏᴜᴘ
-• /unban - Uɴʙᴀɴ ᴀ ʙᴀɴɴᴇᴅ ᴜsᴇʀ
-• /tban &lt;time&gt; - Tᴇᴍᴘᴏʀᴀʀʏ ʙᴀɴ (ᴇ.ɢ. <code>/tban 2h</code>)
-• /mute - Mᴜᴛᴇ ᴀ ᴜsᴇʀ
-• /unmute - Uɴᴍᴜᴛᴇ ᴀ ᴜsᴇʀ
-• /tmute &lt;time&gt; - Tᴇᴍᴘᴏʀᴀʀʏ ᴍᴜᴛᴇ (ᴇ.ɢ. <code>/tmute 30m</code>)
-• /pin - Pɪɴ ᴀ ᴍᴇssᴀɢᴇ
-• /unpin - Uɴᴘɪɴ ᴀ ᴍᴇssᴀɢᴇ
-• /purge - Dᴇʟᴇᴛᴇ ᴀʟʟ ᴍᴇssᴀɢᴇs ᴜᴘ ᴛᴏ ʀᴇᴘʟɪᴇᴅ ᴍᴇssᴀɢᴇ
-• /dkick - Kɪᴄᴋ ᴀʟʟ ᴅᴇʟᴇᴛᴇᴅ ᴀᴄᴄᴏᴜɴᴛs ғʀᴏᴍ ɢʀᴏᴜᴘ
-• /instatus - Cʜᴇᴄᴋ ɢʀᴏᴜᴘ ᴍᴇᴍʙᴇʀ sᴛᴀᴛᴜs"""
+• /settings - Iɴᴛᴇʀᴀᴄᴛɪᴠᴇ 8-ʀᴏᴡ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs ᴘᴀɴᴇʟ
+• /details - Vɪᴇᴡ ᴄᴜʀʀᴇɴᴛ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs
+• /reset_group - Rᴇsᴇᴛ ɢʀᴏᴜᴘ sᴇᴛᴛɪɴɢs ᴛᴏ ᴅᴇғᴀᴜʟᴛ
+• /set_caption &lt;text&gt; - Sᴇᴛ ᴄᴜsᴛᴏᴍ ғɪʟᴇ ᴄᴀᴘᴛɪᴏɴ
+• /set_template &lt;text&gt; - Sᴇᴛ ᴄᴜsᴛᴏᴍ IMDb ᴛᴇᴍᴘʟᴀᴛᴇ
+• /set_fsub &lt;channel_id&gt; - Sᴇᴛ ɢʀᴏᴜᴘ Fᴏʀᴄᴇ Sᴜʙ ᴄʜᴀɴɴᴇʟ
+• /remove_fsub - Rᴇᴍᴏᴠᴇ ɢʀᴏᴜᴘ Fᴏʀᴄᴇ Sᴜʙ ᴄʜᴀɴɴᴇʟ
+• /set_log_channel &lt;id&gt; - Sᴇᴛ ɢʀᴏᴜᴘ Lᴏɢ ᴄʜᴀɴɴᴇʟ
+• /ban / /unban / /tban &lt;time&gt; - Bᴀɴ ᴄᴏɴᴛʀᴏʟs
+• /mute / /unmute / /tmute &lt;time&gt; - Mᴜᴛᴇ ᴄᴏɴᴛʀᴏʟs
+• /pin / /unpin / /purge - Mᴇssᴀɢᴇ ᴄᴏɴᴛʀᴏʟs
+• /dkick / /instatus - Mᴇᴍʙᴇʀ ᴄʟᴇᴀɴᴜᴘ"""
 
     EXTRAMOD_TXT = """<b>✨ Hᴇʟᴘ Fᴏʀ Exᴛʀᴀ Mᴏᴅᴜʟᴇs</b>
 
 <i>Usᴇғᴜʟ ᴇxᴛʀᴀ ᴜᴛɪʟɪᴛɪᴇs ғᴏʀ ᴜsᴇʀs ᴀɴᴅ ɢʀᴏᴜᴘs:</i>
 
 <b>Cᴏᴍᴍᴀɴᴅs & Usᴀɢᴇ:</b>
+• /plan ᴏʀ /myplan - Vɪᴇᴡ VIP Pʟᴀɴs, Fʀᴇᴇ Tʀɪᴀʟ & Sᴜʙsᴄʀɪᴘᴛɪᴏɴ
+• /refer - Rᴇғᴇʀ ғʀɪᴇɴᴅs & ᴇᴀʀɴ Fʀᴇᴇ VIP (+10 ᴘᴛs/ʀᴇғᴇʀʀᴀʟ)
+• /redeem &lt;code&gt; - Rᴇᴅᴇᴇᴍ ᴀ VIP Gɪғᴛ Cᴏᴅᴇ
+• /request &lt;movie&gt; - Rᴇǫᴜᴇsᴛ ᴀ ᴍᴏᴠɪᴇ/sᴇʀɪᴇs ғʀᴏᴍ ᴀᴅᴍɪɴs
+• /top_search ᴏʀ /trendlist - Vɪᴇᴡ ᴛᴏᴘ ᴛʀᴇɴᴅɪɴɢ sᴇᴀʀᴄʜᴇs
 • /id - Gᴇᴛ Telegram IDs (Usᴇʀ, Cʜᴀᴛ, Mᴇssᴀɢᴇ)
 • /info - Gᴇᴛ ᴅᴇᴛᴀɪʟᴇᴅ ᴘʀᴏғɪʟᴇ ɪɴғᴏʀᴍᴀᴛɪᴏɴ
 • /imdb &lt;title&gt; - Lᴏᴏᴋ ᴜᴘ ᴍᴏᴠɪᴇ ᴏʀ sᴇʀɪᴇs ɪɴғᴏ ᴏɴ IMDb
-• /ping - Cʜᴇᴄᴋ ʙᴏᴛ ʟᴀᴛᴇɴᴄʏ ᴀɴᴅ sᴇʀᴠᴇʀ ᴜᴘᴛɪᴍᴇ
+• /ping ᴏʀ /alive - Cʜᴇᴄᴋ ʙᴏᴛ ʟᴀᴛᴇɴᴄʏ ᴀɴᴅ sᴇʀᴠᴇʀ ᴜᴘᴛɪᴍᴇ
 • /json - Rᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴍᴇssᴀɢᴇ ᴛᴏ ɢᴇᴛ ɪᴛs ʀᴀᴡ JSON sᴛʀᴜᴄᴛᴜʀᴇ
 • /font &lt;text&gt; - Cᴏɴᴠᴇʀᴛ ᴛᴇxᴛ ᴛᴏ sᴛʏʟɪsʜ / ғᴀɴᴄʏ ғᴏɴᴛs
 • /share &lt;text&gt; - Gᴇɴᴇʀᴀᴛᴇ ᴀ sʜᴀʀᴇᴀʙʟᴇ Telegram ʟɪɴᴋ
@@ -175,5 +218,6 @@ Hᴇʀᴇ Is Mʏ Hᴇʟᴘ Mᴇɴᴜ. Cʟɪᴄᴋ ᴏɴ ᴀɴʏ ᴄᴀᴛᴇɢ�
 
     HOW_TO_DOWNLOAD = """<b>Hᴏᴡ Tᴏ Gᴇᴛ Fɪʟᴇs:</b>
 1. Sᴇᴀʀᴄʜ ғᴏʀ ᴀɴʏ ᴍᴏᴠɪᴇ, sᴇʀɪᴇs, ᴏʀ ғɪʟᴇ ɴᴀᴍᴇ.
-2. Cʟɪᴄᴋ ᴏɴ ᴛʜᴇ ғɪʟᴇ ʙᴜᴛᴛᴏɴ.
-3. Yᴏᴜʀ ғɪʟᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟɪᴠᴇʀᴇᴅ ɪɴsᴛᴀɴᴛʟʏ ᴡɪᴛʜ sᴛʀɪᴄᴛ ᴄᴏɴᴛᴇɴᴛ ᴘʀᴏᴛᴇᴄᴛɪᴏɴ!"""
+2. Fɪʟᴛᴇʀ ʙʏ Qᴜᴀʟɪᴛʏ, Lᴀɴɢᴜᴀɢᴇ, ᴏʀ Sᴇᴀsᴏɴ, ᴏʀ ᴛᴀᴘ <b>Sᴇɴᴅ Aʟʟ</b>.
+3. Yᴏᴜʀ ғɪʟᴇ ᴡɪʟʟ ʙᴇ ᴅᴇʟɪᴠᴇʀᴇᴅ ɪɴsᴛᴀɴᴛʟʏ!"""
+

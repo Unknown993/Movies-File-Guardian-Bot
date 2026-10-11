@@ -29,7 +29,7 @@ from handlers.extended_commands import connection_callback_handler
 def test_start_and_help_keyboards():
     """Verify inline button keyboards match MR.Guardian_bot specifications."""
     start_kb = get_start_keyboard("TestBot")
-    assert len(start_kb.inline_keyboard) == 3
+    assert len(start_kb.inline_keyboard) == 5  # Add Me | Search+TopSearch | VIP+Trial | About+Help | Disclaimer+Donate
     # Check button texts
     all_buttons = [btn for row in start_kb.inline_keyboard for btn in row]
     btn_texts = [btn.text for btn in all_buttons]

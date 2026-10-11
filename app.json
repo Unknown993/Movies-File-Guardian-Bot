@@ -63,6 +63,10 @@
       "description": "Set to '1' to enable Paid Members Only mode by default, or '0' for Free Public Access.",
       "value": "0",
       "required": false
+    },
+    "LOG_CHANNEL": {
+      "description": "Dedicated Operational Work Log Channel ID (e.g. -1001234567890). Receives ONLY work-related logs (NewUser, NewGroup, VIP, Requests, Errors) — never file indexing.",
+      "required": false
     }
   },
   "formation": {

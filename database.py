@@ -175,6 +175,46 @@ class Database:
             """)
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sub_expires ON subscriptions(expires_at);")
 
+            # 12. Trending / Top Search History
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS search_history (
+                    query TEXT PRIMARY KEY,
+                    count INTEGER DEFAULT 1,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # 13. Free Trial Tracking
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_trials (
+                    user_id INTEGER PRIMARY KEY,
+                    claimed_at REAL NOT NULL
+                );
+            """)
+
+            # 14. Referral Points & Tracking
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS referrals (
+                    user_id INTEGER PRIMARY KEY,
+                    points INTEGER DEFAULT 0,
+                    referred_by INTEGER,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # 15. Gift / Redeem Codes
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS redeem_codes (
+                    code TEXT PRIMARY KEY,
+                    duration_str TEXT NOT NULL,
+                    duration_seconds INTEGER NOT NULL,
+                    created_by INTEGER,
+                    created_at REAL NOT NULL,
+                    used_by INTEGER,
+                    used_at REAL
+                );
+            """)
+
             # Initialize default settings if absent
             cur = await db.execute("SELECT value FROM settings WHERE key = 'delivery_mode';")
             row = await cur.fetchone()
@@ -523,9 +563,11 @@ class Database:
     # User Tracking & Broadcasts
     # -------------------------------------------------------------
 
-    async def add_or_update_user(self, user_id: int, first_name: Optional[str] = None, username: Optional[str] = None) -> None:
-        """Insert or update user record."""
+    async def add_or_update_user(self, user_id: int, first_name: Optional[str] = None, username: Optional[str] = None) -> bool:
+        """Insert or update user record. Returns True if this is a brand new user."""
         async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT 1 FROM users WHERE user_id = ? LIMIT 1;", (user_id,)) as cur:
+                exists = await cur.fetchone() is not None
             await db.execute(
                 """
                 INSERT INTO users (user_id, first_name, username)
@@ -537,6 +579,7 @@ class Database:
                 (user_id, first_name, username),
             )
             await db.commit()
+            return not exists
 
     async def get_all_users(self) -> List[int]:
         """Fetch all registered user IDs for broadcast."""
@@ -555,9 +598,11 @@ class Database:
     # Group/Chat Tracking & Settings
     # -------------------------------------------------------------
 
-    async def add_or_update_chat(self, chat_id: int, title: Optional[str] = None, chat_type: Optional[str] = None) -> None:
-        """Insert or update chat record."""
+    async def add_or_update_chat(self, chat_id: int, title: Optional[str] = None, chat_type: Optional[str] = None) -> bool:
+        """Insert or update chat record. Returns True if this is a brand new chat."""
         async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT 1 FROM chats WHERE chat_id = ? LIMIT 1;", (chat_id,)) as cur:
+                exists = await cur.fetchone() is not None
             await db.execute(
                 """
                 INSERT INTO chats (chat_id, title, chat_type)
@@ -569,6 +614,7 @@ class Database:
                 (chat_id, title, chat_type),
             )
             await db.commit()
+            return not exists
 
     async def get_all_chats(self) -> List[Dict[str, Any]]:
         """Fetch all registered group chats."""
@@ -971,13 +1017,19 @@ class Database:
     async def get_group_settings(self, chat_id: int) -> Dict[str, Any]:
         """Fetch settings for a specific group chat, with default fallbacks."""
         defaults = {
-            "button": True,         # True = single button, False = double button
+            "button": True,         # True = Button Mode, False = Text Link Mode
             "botpm": False,         # True = deliver files in PM
             "file_secure": True,    # True = protect content (Mode 1)
             "imdb": True,           # True = include IMDb preview
             "spell_check": True,    # True = suggest similar titles
             "welcome": True,        # True = welcome greeting
+            "auto_delete": True,    # True = auto delete filter results
+            "auto_ffilter": True,   # True = auto filter enabled in group
+            "max_btn": True,        # True = 10 results/page, False = 6 results/page
+            "caption": None,        # Custom file caption template
             "template": None,       # Custom IMDb / result template
+            "fsub": [],             # Group-specific force sub channel IDs
+            "log": None,            # Group-specific log channel ID
         }
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute("SELECT settings_json FROM group_settings WHERE chat_id = ?;", (chat_id,)) as cur:
@@ -1004,6 +1056,20 @@ class Database:
                 (chat_id, json.dumps(current)),
             )
             await db.commit()
+
+    async def reset_group_settings(self, chat_id: int) -> bool:
+        """Reset a specific group's settings to default."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cur = await db.execute("DELETE FROM group_settings WHERE chat_id = ?;", (chat_id,))
+            await db.commit()
+            return (cur.rowcount or 0) > 0
+
+    async def reset_all_group_settings(self) -> int:
+        """Reset all group settings across the entire database to default."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cur = await db.execute("DELETE FROM group_settings;")
+            await db.commit()
+            return cur.rowcount or 0
 
     async def get_total_files_count(self) -> int:
         """Return total files count."""
@@ -1157,5 +1223,276 @@ class Database:
         """Save customized Star plans to database."""
         serialized = {str(k): v for k, v in plans.items()}
         await self.set_setting("star_plans", json.dumps(serialized))
+
+    # -------------------------------------------------------------
+    # Trending / Top Searches
+    # -------------------------------------------------------------
+
+    async def record_search_query(self, query: str) -> None:
+        """Record a normalized search query for top/trending searches."""
+        clean_q = " ".join(query.strip().lower().split())
+        if len(clean_q) < 2 or clean_q.startswith("/"):
+            return
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO search_history (query, count, updated_at)
+                VALUES (?, 1, CURRENT_TIMESTAMP)
+                ON CONFLICT(query) DO UPDATE SET
+                    count = count + 1,
+                    updated_at = CURRENT_TIMESTAMP;
+                """,
+                (clean_q,),
+            )
+            await db.commit()
+
+    async def get_top_searches(self, limit: int = 20) -> List[Tuple[str, int]]:
+        """Return top searched queries as [(query, count), ...]."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT query, count FROM search_history ORDER BY count DESC, updated_at DESC LIMIT ?;",
+                (limit,),
+            ) as cur:
+                rows = await cur.fetchall()
+                return [(r[0], r[1]) for r in rows]
+
+    async def clear_search_history(self) -> int:
+        """Clear all trending search history records."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cur = await db.execute("DELETE FROM search_history;")
+            await db.commit()
+            return cur.rowcount or 0
+
+    # -------------------------------------------------------------
+    # Free Trial & Referral System
+    # -------------------------------------------------------------
+
+    async def has_claimed_trial(self, user_id: int) -> bool:
+        """Check if a user has already used their one-time free VIP trial."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT 1 FROM user_trials WHERE user_id = ? LIMIT 1;", (user_id,)) as cur:
+                return (await cur.fetchone()) is not None
+
+    async def claim_free_trial(self, user_id: int, duration_seconds: int = 300) -> Dict[str, Any]:
+        """Mark free trial claimed and grant trial VIP subscription."""
+        now = time.time()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT OR REPLACE INTO user_trials (user_id, claimed_at) VALUES (?, ?);",
+                (user_id, now),
+            )
+            await db.commit()
+        mins = max(1, duration_seconds // 60)
+        return await self.add_or_extend_subscription(
+            user_id=user_id,
+            plan_name=f"Free Trial ({mins} Min)",
+            stars=0,
+            duration_seconds=duration_seconds,
+        )
+
+    async def reset_free_trial(self, user_id: Optional[int] = None) -> int:
+        """Reset free trial eligibility for a specific user or all users."""
+        async with aiosqlite.connect(self.db_path) as db:
+            if user_id is not None:
+                cur = await db.execute("DELETE FROM user_trials WHERE user_id = ?;", (user_id,))
+            else:
+                cur = await db.execute("DELETE FROM user_trials;")
+            await db.commit()
+            return cur.rowcount or 0
+
+    async def is_referred_user(self, user_id: int) -> bool:
+        """Check if user was already referred by someone."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT referred_by FROM referrals WHERE user_id = ? AND referred_by IS NOT NULL;",
+                (user_id,),
+            ) as cur:
+                return (await cur.fetchone()) is not None
+
+    async def mark_user_referred(self, user_id: int, referrer_id: int) -> bool:
+        """Record that user_id was referred by referrer_id. Returns True if newly recorded."""
+        if user_id == referrer_id:
+            return False
+        if await self.is_referred_user(user_id):
+            return False
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO referrals (user_id, points, referred_by, updated_at)
+                VALUES (?, 0, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    referred_by = excluded.referred_by,
+                    updated_at = CURRENT_TIMESTAMP;
+                """,
+                (user_id, referrer_id),
+            )
+            await db.commit()
+            return True
+
+    async def get_refer_points(self, user_id: int) -> int:
+        """Fetch current referral points for a user."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT points FROM referrals WHERE user_id = ?;", (user_id,)) as cur:
+                row = await cur.fetchone()
+                return int(row[0]) if row and row[0] is not None else 0
+
+    async def add_refer_points(self, user_id: int, points: int) -> int:
+        """Add referral points to user and return new total."""
+        curr = await self.get_refer_points(user_id)
+        new_pts = max(0, curr + points)
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO referrals (user_id, points, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    points = excluded.points,
+                    updated_at = CURRENT_TIMESTAMP;
+                """,
+                (user_id, new_pts),
+            )
+            await db.commit()
+        return new_pts
+
+    async def set_refer_points(self, user_id: int, points: int) -> None:
+        """Set referral points for a user (e.g. reset to 0 after reward)."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO referrals (user_id, points, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    points = excluded.points,
+                    updated_at = CURRENT_TIMESTAMP;
+                """,
+                (user_id, max(0, points)),
+            )
+            await db.commit()
+
+    # -------------------------------------------------------------
+    # Redeem / Gift Codes
+    # -------------------------------------------------------------
+
+    async def create_redeem_codes(
+        self,
+        duration_str: str,
+        duration_seconds: int,
+        count: int = 1,
+        created_by: int = 0,
+    ) -> List[str]:
+        """Generate one or more unique VIP redeem codes."""
+        import string
+        alphabet = string.ascii_uppercase + string.digits
+        codes: List[str] = []
+        now = time.time()
+        async with aiosqlite.connect(self.db_path) as db:
+            for _ in range(max(1, min(count, 50))):
+                code = "VIP-" + "".join(secrets.choice(alphabet) for _ in range(10))
+                await db.execute(
+                    """
+                    INSERT INTO redeem_codes (code, duration_str, duration_seconds, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?);
+                    """,
+                    (code, duration_str, duration_seconds, created_by, now),
+                )
+                codes.append(code)
+            await db.commit()
+        return codes
+
+    async def consume_redeem_code(self, code: str, user_id: int) -> Optional[Dict[str, Any]]:
+        """Validate and consume an unused redeem code. Returns code record if valid, else None."""
+        clean_code = code.strip().upper()
+        now = time.time()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM redeem_codes WHERE UPPER(code) = ? AND used_by IS NULL LIMIT 1;",
+                (clean_code,),
+            ) as cur:
+                row = await cur.fetchone()
+                if not row:
+                    return None
+                record = dict(row)
+            await db.execute(
+                "UPDATE redeem_codes SET used_by = ?, used_at = ? WHERE code = ?;",
+                (user_id, now, record["code"]),
+            )
+            await db.commit()
+            return record
+
+    # -------------------------------------------------------------
+    # Bulk Delete Files by Keyword (/deletefiles)
+    # -------------------------------------------------------------
+
+    async def count_files_by_keyword(self, keyword: str) -> int:
+        """Count how many indexed files match a keyword in file_name or caption."""
+        if not keyword.strip():
+            return 0
+        import re
+        words = [w.strip() for w in re.split(r"[\s._\-+]+", keyword) if w.strip()]
+        if not words:
+            return 0
+        conditions = " AND ".join(["(file_name LIKE ? OR caption LIKE ?)"] * len(words))
+        params: List[Any] = []
+        for w in words:
+            p = f"%{w}%"
+            params.extend([p, p])
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(f"SELECT COUNT(*) FROM files WHERE {conditions};", params) as cur:
+                row = await cur.fetchone()
+                return row[0] if row else 0
+
+    async def delete_files_by_keyword(self, keyword: str) -> int:
+        """Delete all indexed files matching a keyword in file_name or caption."""
+        if not keyword.strip():
+            return 0
+        import re
+        words = [w.strip() for w in re.split(r"[\s._\-+]+", keyword) if w.strip()]
+        if not words:
+            return 0
+        conditions = " AND ".join(["(file_name LIKE ? OR caption LIKE ?)"] * len(words))
+        params: List[Any] = []
+        for w in words:
+            p = f"%{w}%"
+            params.extend([p, p])
+        async with aiosqlite.connect(self.db_path) as db:
+            cur = await db.execute(f"DELETE FROM files WHERE {conditions};", params)
+            await db.commit()
+            return cur.rowcount or 0
+
+    # -------------------------------------------------------------
+    # Bot-Level Feature Toggles (PM Search, Movie Update, Log Channel)
+    # -------------------------------------------------------------
+
+    async def get_pm_search_enabled(self) -> bool:
+        """Check if auto-filter search in Bot PM is enabled (default True)."""
+        val = await self.get_setting("pm_search_enabled", "1")
+        return val in ("1", "true", "True", "yes", "on")
+
+    async def set_pm_search_enabled(self, enabled: bool) -> None:
+        """Enable or disable auto-filter search in Bot PM."""
+        await self.set_setting("pm_search_enabled", "1" if enabled else "0")
+
+    async def get_movie_update_enabled(self) -> bool:
+        """Check if movie update notifications are enabled (default False)."""
+        val = await self.get_setting("movie_update_enabled", "0")
+        return val in ("1", "true", "True", "yes", "on")
+
+    async def set_movie_update_enabled(self, enabled: bool) -> None:
+        """Enable or disable movie update notifications."""
+        await self.set_setting("movie_update_enabled", "1" if enabled else "0")
+
+    async def get_log_channel(self) -> Optional[int]:
+        """Get dynamic operational log channel ID from DB or fallback to config.LOG_CHANNEL."""
+        from config import LOG_CHANNEL
+        val = await self.get_setting("log_channel_id")
+        if val and val.lstrip("-").isdigit():
+            return int(val)
+        return LOG_CHANNEL
+
+    async def set_log_channel(self, channel_id: Optional[int]) -> None:
+        """Set dynamic operational log channel ID in DB."""
+        await self.set_setting("log_channel_id", str(channel_id) if channel_id else "")
+
 
 

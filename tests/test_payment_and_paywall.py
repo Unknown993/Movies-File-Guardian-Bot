@@ -251,8 +251,9 @@ async def test_successful_payment_handler_activates_vip(tmp_path):
     # Reply should have been sent to user confirming activation
     update.effective_message.reply_text.assert_called_once()
     reply_call = update.effective_message.reply_text.call_args[1]["text"]
-    assert "Payment Successful" in reply_call
-    assert "charge_test_123" in reply_call
+    # Handler uses small-caps unicode text; verify key data points are present
+    assert "charge_test_123" in reply_call  # transaction ID always in plain ASCII
+    assert "15 Days Pass" in reply_call     # plan name always in plain ASCII
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 """
 User handlers:
-- /start (welcome & deep-link file delivery)
+- /start (welcome, referral tracking, #NewUser work log, & deep-link file delivery)
 - /help (command reference)
 """
 
@@ -12,13 +12,13 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode, ChatType
 from telegram.ext import ContextTypes
 
-from config import is_developer, is_admin
+from config import is_developer, is_admin, get_ist_greeting, send_work_log, PREMIUM_LOGS
 from database import Database
 from delivery import deliver_file_to_user
 from cleaner import smart_clean_filename, get_file_type_icon
 from handlers.fsub_helper import is_user_subscribed, send_fsub_alert
 from handlers.batch_handlers import deliver_batch_to_user
-from handlers.payment_handlers import check_user_access, send_paywall_alert
+from handlers.payment_handlers import check_user_access, send_paywall_alert, split_date_time_ist
 from script import Script
 from handlers.menu_handlers import get_start_keyboard, get_help_keyboard
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /start command, including deep-link file retrievals."""
+    """Handle /start command, including referral links and deep-link file retrievals."""
     message = update.effective_message
     user = update.effective_user
     chat = update.effective_chat
@@ -44,99 +44,163 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
 
-    # Register user in SQLite
-    await db.add_or_update_user(user.id, user.first_name, user.username)
+    # Register user in SQLite and log #NewUser if this is their first time
+    is_new_user = await db.add_or_update_user(user.id, user.first_name, user.username)
+    if is_new_user:
+        await send_work_log(
+            context.bot,
+            db,
+            f"👤 <b>#NewUser</b>\n\n"
+            f"🏷 <b>Nᴀᴍᴇ:</b> <a href='tg://user?id={user.id}'>{html.escape(user.first_name or 'User')}</a>\n"
+            f"🆔 <b>Usᴇʀ ID:</b> <code>{user.id}</code>\n"
+            f"🔗 <b>Usᴇʀɴᴀᴍᴇ:</b> {'@' + html.escape(user.username) if user.username else 'None'}",
+        )
+
     args = context.args or []
 
     # -------------------------------------------------------------
-    # Deep-link File Retrieval: /start file_<code> or /start batch_<id>
+    # Deep-link Retrieval: /start reff_<id> | file_<code> | batch_<id>
     # -------------------------------------------------------------
     if args:
         raw_payload = args[0]
         bot_user = await context.bot.get_me()
         bot_username = bot_user.username or "Bot"
 
-        # Check for /start help
-        if raw_payload.lower() == "help":
-            await message.reply_text(
-                Script.HELP_TXT.format(user=html.escape(user.first_name or "User")),
-                reply_markup=get_help_keyboard(),
-                parse_mode=ParseMode.HTML,
-            )
-            return
-
-        # Check for /start plan or /start buy deep links
-        if raw_payload.lower() in ("plan", "plans", "buy", "vip"):
-            from handlers.payment_handlers import plan_command
-            await plan_command(update, context)
-            return
-
-        if raw_payload.startswith("buy_"):
-            try:
-                stars_val = int(raw_payload.removeprefix("buy_"))
-                from handlers.payment_handlers import send_star_invoice
-                sent = await send_star_invoice(
-                    bot=context.bot,
-                    chat_id=chat.id,
-                    user_id=user.id,
-                    stars_amount=stars_val,
-                    db=db,
+        # Check for referral deep-link: /start reff_<referrer_id>
+        if raw_payload.startswith("reff_"):
+            ref_str = raw_payload.removeprefix("reff_").strip()
+            if ref_str.isdigit():
+                referrer_id = int(ref_str)
+                if referrer_id != user.id and hasattr(db, "mark_user_referred"):
+                    newly_referred = await db.mark_user_referred(user.id, referrer_id)
+                    if newly_referred:
+                        new_pts = await db.add_refer_points(referrer_id, 10)
+                        if new_pts >= 100:
+                            await db.set_refer_points(referrer_id, new_pts - 100)
+                            sub = await db.add_or_extend_subscription(
+                                user_id=referrer_id,
+                                plan_name="Referral Reward (1 Month VIP)",
+                                stars=0,
+                                duration_seconds=30 * 86400,
+                            )
+                            exp_date, exp_time = split_date_time_ist(sub["expires_at"])
+                            try:
+                                await context.bot.send_message(
+                                    chat_id=referrer_id,
+                                    text=(
+                                        f"🎉 <b><u>Cᴏɴɢʀᴀᴛᴜʟᴀᴛɪᴏɴs! Rᴇғᴇʀʀᴀʟ Rᴇᴡᴀʀᴅ Uɴʟᴏᴄᴋᴇᴅ</u></b> 🏆\n\n"
+                                        f"You reached <b>100 Referral Points</b> and unlocked <b>1 Month Free VIP Subscription</b>!\n"
+                                        f"⌛ <b>Expires On:</b> <code>{exp_date} | {exp_time} IST</code>"
+                                    ),
+                                    parse_mode=ParseMode.HTML,
+                                )
+                            except Exception:
+                                pass
+                            await send_work_log(
+                                context.bot,
+                                db,
+                                f"🏆 <b>#Referral_Reward</b>\n\n"
+                                f"👤 <b>Referrer ID:</b> <code>{referrer_id}</code>\n"
+                                f"🎁 <b>Reward:</b> <code>1 Month Free VIP (100 Points)</code>\n"
+                                f"⌛ <b>Expiry:</b> <code>{exp_date} {exp_time} IST</code>",
+                                channel_override=PREMIUM_LOGS,
+                            )
+                        else:
+                            try:
+                                await context.bot.send_message(
+                                    chat_id=referrer_id,
+                                    text=(
+                                        f"🔗 <b><u>Nᴇᴡ Rᴇғᴇʀʀᴀʟ Bᴏɴᴜs! (+10 Pᴏɪɴᴛs)</u></b>\n\n"
+                                        f"👤 <b>Joined User:</b> {html.escape(user.first_name or 'User')}\n"
+                                        f"🏆 <b>Total Points:</b> <code>{new_pts} / 100</code>"
+                                    ),
+                                    parse_mode=ParseMode.HTML,
+                                )
+                            except Exception:
+                                pass
+            # Fall through to standard welcome message after recording referral
+        else:
+            # Check for /start help
+            if raw_payload.lower() == "help":
+                await message.reply_text(
+                    Script.HELP_TXT.format(user=html.escape(user.first_name or "User")),
+                    reply_markup=get_help_keyboard(),
+                    parse_mode=ParseMode.HTML,
                 )
-                if sent:
-                    return
-            except (ValueError, IndexError):
-                pass
-            from handlers.payment_handlers import plan_command
-            await plan_command(update, context)
-            return
+                return
 
-        # Force Subscription Check
-        if not await is_user_subscribed(context.bot, user.id):
-            await send_fsub_alert(context.bot, chat.id, raw_payload, bot_username)
-            return
+            # Check for /start plan or /start buy deep links
+            if raw_payload.lower() in ("plan", "plans", "buy", "vip"):
+                from handlers.payment_handlers import plan_command
+                await plan_command(update, context)
+                return
 
-        # Paywall / Paid-Only Access Check
-        if not await check_user_access(db, user.id):
-            await send_paywall_alert(context.bot, chat.id, user.first_name)
-            return
+            if raw_payload.startswith("buy_"):
+                try:
+                    stars_val = int(raw_payload.removeprefix("buy_"))
+                    from handlers.payment_handlers import send_star_invoice
+                    sent = await send_star_invoice(
+                        bot=context.bot,
+                        chat_id=chat.id,
+                        user_id=user.id,
+                        stars_amount=stars_val,
+                        db=db,
+                    )
+                    if sent:
+                        return
+                except (ValueError, IndexError):
+                    pass
+                from handlers.payment_handlers import plan_command
+                await plan_command(update, context)
+                return
 
-        # 1. Batch Link Delivery
-        if raw_payload.startswith("batch_"):
-            batch_id = raw_payload.removeprefix("batch_").strip()
-            await deliver_batch_to_user(
+            # Force Subscription Check
+            if not await is_user_subscribed(context.bot, user.id):
+                await send_fsub_alert(context.bot, chat.id, raw_payload, bot_username)
+                return
+
+            # Paywall / Paid-Only Access Check
+            if not await check_user_access(db, user.id):
+                await send_paywall_alert(context.bot, chat.id, user.first_name)
+                return
+
+            # 1. Batch Link Delivery
+            if raw_payload.startswith("batch_"):
+                batch_id = raw_payload.removeprefix("batch_").strip()
+                await deliver_batch_to_user(
+                    bot=context.bot,
+                    db=db,
+                    job_queue=context.job_queue,
+                    chat_id=chat.id,
+                    chat_type=chat.type,
+                    batch_id=batch_id,
+                    bot_username=bot_username,
+                )
+                return
+
+            # 2. Single File Delivery
+            file_code = raw_payload.removeprefix("file_").strip()
+            file_record = await db.get_file_by_code(file_code)
+
+            if not file_record:
+                await message.reply_text(
+                    "❌ **File Not Found or Expired**\n\n"
+                    "The requested file code does not exist, has been removed, "
+                    "or expired according to delivery policies.",
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+                return
+
+            await deliver_file_to_user(
                 bot=context.bot,
                 db=db,
                 job_queue=context.job_queue,
                 chat_id=chat.id,
                 chat_type=chat.type,
-                batch_id=batch_id,
+                file_record=file_record,
                 bot_username=bot_username,
             )
             return
-
-        # 2. Single File Delivery
-        file_code = raw_payload.removeprefix("file_").strip()
-        file_record = await db.get_file_by_code(file_code)
-
-        if not file_record:
-            await message.reply_text(
-                "❌ **File Not Found or Expired**\n\n"
-                "The requested file code does not exist, has been removed, "
-                "or expired according to delivery policies.",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-            return
-
-        await deliver_file_to_user(
-            bot=context.bot,
-            db=db,
-            job_queue=context.job_queue,
-            chat_id=chat.id,
-            chat_type=chat.type,
-            file_record=file_record,
-            bot_username=bot_username,
-        )
-        return
 
     # -------------------------------------------------------------
     # Standard Welcome Message & Interactive Menu
@@ -159,6 +223,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     welcome_text = Script.START_TXT.format(
         user=html.escape(user.first_name or "User"),
         bot=html.escape(bot_name),
+        wish=get_ist_greeting(),
     )
     reply_markup = get_start_keyboard(bot_username)
 
@@ -242,7 +307,6 @@ async def handle_text_search(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if not message or not message.text:
         return
 
-    # Ignore command messages
     if message.text.startswith("/"):
         return
 
@@ -301,6 +365,11 @@ async def _perform_file_search(update: Update, context: ContextTypes.DEFAULT_TYP
     if user and not await check_user_access(db, user.id):
         await send_paywall_alert(context.bot, message.chat_id, user.first_name)
         return
+    if hasattr(db, "record_search_query"):
+        try:
+            await db.record_search_query(query)
+        except Exception:
+            pass
     matches = await db.search_files(query, limit=8)
 
     if not matches:

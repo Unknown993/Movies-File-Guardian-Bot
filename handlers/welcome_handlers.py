@@ -12,7 +12,7 @@ from telegram.constants import ParseMode, ChatMemberStatus, ChatType
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest, TelegramError
 
-from config import WELCOME_TEXT, WELCOME_PIC, is_admin
+from config import WELCOME_TEXT, WELCOME_PIC, is_admin, send_work_log
 from database import Database
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,15 @@ async def handle_new_chat_members(update: Update, context: ContextTypes.DEFAULT_
 
     db: Database = context.bot_data["db"]
     # Update chat registry
-    await db.add_or_update_chat(chat.id, chat.title, chat.type)
+    is_new_chat = await db.add_or_update_chat(chat.id, chat.title, chat.type)
+    if is_new_chat:
+        await send_work_log(
+            context.bot,
+            db,
+            f"👥 <b>#NewGroup</b>\n\n"
+            f"🏷 <b>Tɪᴛʟᴇ:</b> {html.escape(chat.title or 'Group')}\n"
+            f"🆔 <b>Cʜᴀᴛ ID:</b> <code>{chat.id}</code>",
+        )
 
     # Check if welcome greetings are enabled for this chat
     welcome_enabled = await db.get_chat_welcome(chat.id)

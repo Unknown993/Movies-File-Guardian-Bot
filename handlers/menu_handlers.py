@@ -1,11 +1,11 @@
 """
 Interactive Navigation & Callback Menus module:
-Faithfully replicates all buttons, characteristics, and sub-menus of MR.Guardian_bot / Professor-Bot:
-- Start Menu with Add To Group, Search, Help, About
-- Help Category Hub (Admin Panel, Filters, Connect, File Store, Extra Mode, Group Manager, Bot Status)
+Faithfully replicates all buttons, characteristics, and sub-menus of Premium_Guardian & MR.Guardian_bot:
+- Start Menu with Add To Group, Search, Top Searching, VIP Plans, Free Trial, Help, About, Disclaimer, Donate
+- Help Category Hub (Admin Panel, VIP & Plans, Filters, Connect, File Store, Extra Mode, Group Manager, Bot Status)
 - Filter Sub-menus (AutoFilter, ManualFilter, GlobalFilter, Button Format)
 - Real-time Bot and Server Status with live refresh
-- Source Code and About pages
+- Source Code, Disclaimer, Donation, and About pages
 - Close button functionality
 """
 
@@ -26,29 +26,38 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode, ChatType
 from telegram.ext import ContextTypes
 
-from config import is_admin, is_developer
+from config import is_admin, is_developer, get_ist_greeting, OWNER_UPI_ID
 from database import Database
 from script import Script
 from handlers.file_handlers import format_file_size
 from handlers.extended_commands import format_uptime, BOT_START_TIME
+from handlers.filter_handlers import get_query_hash
 
 logger = logging.getLogger(__name__)
 
 
 def get_start_keyboard(bot_username: str) -> InlineKeyboardMarkup:
-    """Build the main Start keyboard matching MR.Guardian_bot."""
+    """Build the main Start keyboard matching Premium_Guardian & MR.Guardian_bot."""
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("➕️ Aᴅᴅ Mᴇ Tᴏ Yᴏᴜʀ Cʜᴀᴛ ➕", url=f"https://t.me/{bot_username}?startgroup=true")
         ],
         [
             InlineKeyboardButton("Sᴇᴀʀᴄʜ 🔎", switch_inline_query_current_chat=""),
-            InlineKeyboardButton("Aʙᴏᴜᴛ ✨", callback_data="menu_about"),
+            InlineKeyboardButton("⭐ Tᴏᴘ Sᴇᴀʀᴄʜɪɴɢ", callback_data="menu_topsearch"),
         ],
         [
             InlineKeyboardButton("💎 VIP & Pʟᴀɴs", callback_data="show_plans"),
+            InlineKeyboardButton("🎁 Fʀᴇᴇ Tʀɪᴀʟ", callback_data="give_trial"),
+        ],
+        [
+            InlineKeyboardButton("Aʙᴏᴜᴛ ✨", callback_data="menu_about"),
             InlineKeyboardButton("Hᴇʟᴘ 🕸️", callback_data="menu_help"),
-        ]
+        ],
+        [
+            InlineKeyboardButton("⚠️ Dɪsᴄʟᴀɪᴍᴇʀ", callback_data="menu_disclaimer"),
+            InlineKeyboardButton("💖 Dᴏɴᴀᴛᴇ", callback_data="menu_donate"),
+        ],
     ])
 
 
@@ -104,7 +113,7 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     elif data == "menu_start":
-        text = Script.START_TXT.format(user=user_name, bot=bot_name)
+        text = Script.START_TXT.format(user=user_name, bot=bot_name, wish=get_ist_greeting())
         reply_markup = get_start_keyboard(bot_username)
         try:
             await query.edit_message_text(text, reply_markup=reply_markup, parse_mode=ParseMode.HTML, disable_web_page_preview=True)
@@ -124,7 +133,10 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "menu_about":
         text = Script.ABOUT_TXT.format(bot=bot_name)
         buttons = [
-            [InlineKeyboardButton("Sᴏᴜʀᴄᴇ Cᴏᴅᴇ 📜", callback_data="menu_source")],
+            [
+                InlineKeyboardButton("Sᴏᴜʀᴄᴇ Cᴏᴅᴇ 📜", callback_data="menu_source"),
+                InlineKeyboardButton("⚠️ Dɪsᴄʟᴀɪᴍᴇʀ", callback_data="menu_disclaimer"),
+            ],
             [InlineKeyboardButton("✘ Cʟᴏsᴇ", callback_data="menu_close"), InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="menu_start")]
         ]
         try:
@@ -136,11 +148,65 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
     elif data == "menu_source":
         text = Script.SOURCE_TXT
         buttons = [
-            [InlineKeyboardButton("Sᴏᴜʀᴄᴇ Cᴏᴅᴇ", url="https://github.com/Unknown993/PROFESSOR-BOT")],
+            [InlineKeyboardButton("Sᴏᴜʀᴄᴇ Cᴏᴅᴇ", url="https://github.com/Unknown993/Movies-File-Guardian-Bot")],
             [InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="menu_about")]
         ]
         try:
             await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML, disable_web_page_preview=True)
+        except Exception:
+            pass
+        await query.answer()
+
+    elif data == "menu_disclaimer":
+        text = Script.DISCLAIMER_TXT
+        buttons = [
+            [InlineKeyboardButton("✘ Cʟᴏsᴇ", callback_data="menu_close"), InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="menu_start")]
+        ]
+        try:
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML)
+        except Exception:
+            pass
+        await query.answer()
+
+    elif data == "menu_donate":
+        text = Script.DONATION_TXT.format(upi_id=html.escape(OWNER_UPI_ID))
+        buttons = [
+            [InlineKeyboardButton("💎 VIP & Sᴛᴀʀs Pʟᴀɴs", callback_data="show_plans")],
+            [InlineKeyboardButton("✘ Cʟᴏsᴇ", callback_data="menu_close"), InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="menu_start")]
+        ]
+        try:
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.HTML)
+        except Exception:
+            pass
+        await query.answer()
+
+    elif data == "menu_topsearch":
+        top_items = await db.get_top_searches(limit=20) if hasattr(db, "get_top_searches") else []
+        rows = []
+        row = []
+        uid = user.id if user else 0
+        if not top_items:
+            text = (
+                "🔥 <b><u>Tᴏᴘ Tʀᴇɴᴅɪɴɢ Sᴇᴀʀᴄʜᴇs</u></b>\n\n"
+                "📭 <i>No trending searches recorded yet! Type any movie or series name in chat to search.</i>"
+            )
+        else:
+            lines = ["🔥 <b><u>Tᴏᴘ Tʀᴇɴᴅɪɴɢ Sᴇᴀʀᴄʜᴇs</u></b>\n"]
+            for idx, (q_str, cnt) in enumerate(top_items, 1):
+                lines.append(f"{idx}. <code>{html.escape(q_str.title())}</code> ({cnt})")
+                q_hash = get_query_hash(q_str)
+                row.append(InlineKeyboardButton(f"🎬 {q_str.title()[:20]}", callback_data=f"fsp_{uid}_{q_hash}"))
+                if len(row) == 2:
+                    rows.append(row)
+                    row = []
+            if row:
+                rows.append(row)
+            lines.append("\n👇 <i>Tᴀᴘ ᴀɴʏ ᴛɪᴛʟᴇ ʙᴇʟᴏᴡ ᴛᴏ sᴇᴀʀᴄʜ ɪɴsᴛᴀɴᴛʟʏ:</i>")
+            text = "\n".join(lines)
+
+        rows.append([InlineKeyboardButton("✘ Cʟᴏsᴇ", callback_data="menu_close"), InlineKeyboardButton("« Bᴀᴄᴋ", callback_data="menu_start")])
+        try:
+            await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(rows), parse_mode=ParseMode.HTML)
         except Exception:
             pass
         await query.answer()
@@ -261,6 +327,7 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
         total_users = await db.get_total_users_count()
         all_chats = await db.get_all_chats()
         total_chats = len(all_chats)
+        active_subs = await db.get_all_active_subscriptions() if hasattr(db, "get_all_active_subscriptions") else []
         db_size_bytes = db.get_db_size()
         db_size_str = format_file_size(db_size_bytes)
         uptime_str = format_uptime(time.time() - BOT_START_TIME)
@@ -269,6 +336,7 @@ async def menu_callback_handler(update: Update, context: ContextTypes.DEFAULT_TY
             files=total_files,
             users=total_users,
             chats=total_chats,
+            premiums=len(active_subs),
             db_size=db_size_str,
             uptime=uptime_str,
         )

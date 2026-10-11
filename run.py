@@ -29,6 +29,7 @@ from config import (
     DEVELOPER_ID,
     DATABASE_PATH,
     DeliveryMode,
+    send_work_log,
 )
 
 # Ensure working directory is always the project root regardless of where CMD launched run.py
@@ -69,6 +70,7 @@ from handlers.welcome_handlers import (
 from handlers.filter_handlers import (
     handle_filter_or_search,
     filter_pagination_callback,
+    filter_extra_callbacks,
     filter_file_click_callback,
     filter_spelling_click_callback,
     filter_command,
@@ -103,8 +105,28 @@ from handlers.moderation_handlers import (
 )
 from handlers.extended_commands import (
     ping_command,
+    alive_command,
     settings_command,
     settings_callback,
+    details_command,
+    reset_group_command,
+    resetallgroup_command,
+    reload_command,
+    set_caption_command,
+    set_fsub_command,
+    remove_fsub_command,
+    set_log_channel_command,
+    pm_search_command,
+    movie_update_command,
+    del_msg_command,
+    top_search_command,
+    send_user_msg_command,
+    deletefiles_command,
+    deletefiles_callback,
+    request_command,
+    request_status_callback,
+    admin_cmd_command,
+    group_cmd_command,
     logs_command,
     connect_command,
     disconnect_command,
@@ -146,6 +168,10 @@ from handlers.payment_handlers import (
     pre_checkout_handler,
     successful_payment_handler,
     payment_navigation_callbacks,
+    refer_command,
+    add_redeem_command,
+    redeem_command,
+    trial_reset_command,
     paywall_command,
     add_premium_command,
     remove_premium_command,
@@ -300,6 +326,16 @@ async def post_init(application: Application) -> None:
         port = int(port_str)
         asyncio.create_task(_start_heroku_health_server(port))
 
+    # Send #Bot_Started work log to LOG_CHANNEL
+    await send_work_log(
+        application.bot,
+        db,
+        f"🤖 <b>#Bot_Started</b>\n\n"
+        f"• <b>Bot:</b> @{bot_info.username} (<code>{bot_info.id}</code>)\n"
+        f"• <b>Delivery Mode:</b> <code>{curr_mode.value.upper()} ({timer}s)</code>\n"
+        f"• <b>Paywall:</b> <code>{'ON' if paywall_status else 'OFF'}</code>",
+    )
+
 
 def build_application(token: str, db: Database) -> Application:
     """Build and configure the Telegram Bot Application."""
@@ -320,6 +356,10 @@ def build_application(token: str, db: Database) -> Application:
     app.add_handler(CommandHandler(["files", "list"], list_files_command))
     app.add_handler(CommandHandler(["plan", "plans", "buy", "vip"], plan_command))
     app.add_handler(CommandHandler(["myplan", "subscription"], myplan_command))
+    app.add_handler(CommandHandler("refer", refer_command))
+    app.add_handler(CommandHandler("redeem", redeem_command))
+    app.add_handler(CommandHandler(["request", "req"], request_command))
+    app.add_handler(CommandHandler(["top_search", "trendlist", "trending"], top_search_command))
 
     # Register Automated Payments & Paywall Controls
     app.add_handler(CommandHandler("paywall", paywall_command))
@@ -327,6 +367,8 @@ def build_application(token: str, db: Database) -> Application:
     app.add_handler(CommandHandler("remove_premium", remove_premium_command))
     app.add_handler(CommandHandler("get_premium", get_premium_command))
     app.add_handler(CommandHandler("premium_users", premium_users_command))
+    app.add_handler(CommandHandler("add_redeem", add_redeem_command))
+    app.add_handler(CommandHandler("trial_reset", trial_reset_command))
 
     # Register Developer Controls & Admin Commands
     app.add_handler(CommandHandler("set_mode", set_mode_command))
@@ -355,9 +397,10 @@ def build_application(token: str, db: Database) -> Application:
     app.add_handler(CommandHandler("link", link_command))
     app.add_handler(CommandHandler("batch", batch_command))
 
-    # Register Broadcasts
+    # Register Broadcasts & Direct Send
     app.add_handler(CommandHandler("broadcast", broadcast_command))
     app.add_handler(CommandHandler("group_broadcast", group_broadcast_command))
+    app.add_handler(CommandHandler("send", send_user_msg_command))
 
     # Register Group Moderation & Utilities
     app.add_handler(CommandHandler("ban", ban_command))
@@ -372,14 +415,29 @@ def build_application(token: str, db: Database) -> Application:
     app.add_handler(CommandHandler("id", id_command))
     app.add_handler(CommandHandler("info", info_command))
 
-    # Register Extended Commands & Utilities
+    # Register Extended Commands & Group/Bot Customization
     app.add_handler(CommandHandler("ping", ping_command))
+    app.add_handler(CommandHandler("alive", alive_command))
     app.add_handler(CommandHandler("settings", settings_command))
+    app.add_handler(CommandHandler("details", details_command))
+    app.add_handler(CommandHandler("reset_group", reset_group_command))
+    app.add_handler(CommandHandler("resetallgroup", resetallgroup_command))
+    app.add_handler(CommandHandler("reload", reload_command))
+    app.add_handler(CommandHandler("set_caption", set_caption_command))
+    app.add_handler(CommandHandler("set_fsub", set_fsub_command))
+    app.add_handler(CommandHandler("remove_fsub", remove_fsub_command))
+    app.add_handler(CommandHandler("set_log_channel", set_log_channel_command))
+    app.add_handler(CommandHandler("pm_search", pm_search_command))
+    app.add_handler(CommandHandler("movie_update", movie_update_command))
+    app.add_handler(CommandHandler("del_msg", del_msg_command))
+    app.add_handler(CommandHandler("admin_cmd", admin_cmd_command))
+    app.add_handler(CommandHandler("group_cmd", group_cmd_command))
     app.add_handler(CommandHandler(["logs", "log"], logs_command))
     app.add_handler(CommandHandler("connect", connect_command))
     app.add_handler(CommandHandler("disconnect", disconnect_command))
     app.add_handler(CommandHandler("connections", connections_command))
     app.add_handler(CommandHandler("delete", delete_file_command))
+    app.add_handler(CommandHandler("deletefiles", deletefiles_command))
     app.add_handler(CommandHandler("deleteall", deleteall_files_command))
     app.add_handler(CommandHandler(["imdb", "imbd"], imdb_command))
     app.add_handler(CommandHandler("users", users_command))
@@ -451,8 +509,26 @@ def build_application(token: str, db: Database) -> Application:
     )
     app.add_handler(
         CallbackQueryHandler(
+            filter_extra_callbacks,
+            pattern=r"^(fqm|fqs|flm|fls|fsm|fss|fall)_",
+        )
+    )
+    app.add_handler(
+        CallbackQueryHandler(
             filter_file_click_callback,
             pattern=r"^fl_",
+        )
+    )
+    app.add_handler(
+        CallbackQueryHandler(
+            deletefiles_callback,
+            pattern=r"^killfiles_yes_",
+        )
+    )
+    app.add_handler(
+        CallbackQueryHandler(
+            request_status_callback,
+            pattern=r"^reqopt_",
         )
     )
     app.add_handler(
@@ -468,7 +544,7 @@ def build_application(token: str, db: Database) -> Application:
         )
     )
 
-    # Register Telegram Stars Payment Callbacks
+    # Register Telegram Stars Payment & VIP Callbacks
     app.add_handler(
         CallbackQueryHandler(
             buy_star_callback,
@@ -478,7 +554,7 @@ def build_application(token: str, db: Database) -> Application:
     app.add_handler(
         CallbackQueryHandler(
             payment_navigation_callbacks,
-            pattern=r"^(show_plans|show_myplan|close_plan)$",
+            pattern=r"^(show_plans|show_myplan|close_plan|give_trial|refer_menu|ref_point|redeem_info|upi_info)$",
         )
     )
 
@@ -499,7 +575,7 @@ def build_application(token: str, db: Database) -> Application:
         | filters.ANIMATION
         | filters.VIDEO_NOTE
     )
-    # Channel posts listener (auto-indexes files posted in storage channel)
+    # Channel posts listener (auto-indexes files posted in storage channel silently)
     app.add_handler(MessageHandler(filters.ChatType.CHANNEL & media_filter, handle_channel_post))
     # User / Admin direct uploads in DM or group
     app.add_handler(MessageHandler(~filters.ChatType.CHANNEL & media_filter, handle_media_upload))
@@ -519,6 +595,14 @@ def build_application(token: str, db: Database) -> Application:
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log unhandled errors caused by updates and notify the user if possible."""
     logger.error("Exception while handling an update:", exc_info=context.error)
+    db = context.bot_data.get("db") if context and context.bot_data else None
+    if context and context.bot and context.error:
+        import html as _html
+        await send_work_log(
+            context.bot,
+            db,
+            f"⚠️ <b>#Error_Log</b>\n\n<code>{_html.escape(str(context.error)[:500])}</code>",
+        )
     if isinstance(update, Update) and update.effective_message:
         try:
             await update.effective_message.reply_text(
