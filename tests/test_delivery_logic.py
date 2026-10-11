@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from telegram.constants import ChatType
+from telegram.constants import ChatType, ParseMode
 
 from config import DeliveryMode
 from database import Database
@@ -65,7 +65,8 @@ async def test_deliver_file_mode_1_view_only(tmp_path):
         chat_id=12345,
         from_chat_id=-100555,
         message_id=88,
-        caption="View only file",
+        caption="📁 <b>View Only File</b>",
+        parse_mode=ParseMode.HTML,
         protect_content=True,
     )
 
@@ -119,7 +120,8 @@ async def test_deliver_file_mode_2_downloadable_private_chat(tmp_path):
         chat_id=12345,
         from_chat_id=-100777,
         message_id=99,
-        caption="Downloadable video",
+        caption="🎬 <b>Downloadable Video</b>",
+        parse_mode=ParseMode.HTML,
         protect_content=False,
     )
 

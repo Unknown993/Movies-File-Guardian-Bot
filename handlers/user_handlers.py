@@ -6,6 +6,7 @@ User handlers:
 
 from __future__ import annotations
 
+import html
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode, ChatType
@@ -15,6 +16,11 @@ from config import is_developer, is_admin
 from database import Database
 from delivery import deliver_file_to_user
 from cleaner import smart_clean_filename, get_file_type_icon
+from handlers.fsub_helper import is_user_subscribed, send_fsub_alert
+from handlers.batch_handlers import deliver_batch_to_user
+from handlers.payment_handlers import check_user_access, send_paywall_alert
+from script import Script
+from handlers.menu_handlers import get_start_keyboard, get_help_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +35,86 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     db: Database = context.bot_data["db"]
+    # Check if user is banned
+    is_banned, ban_reason = await db.is_user_banned(user.id)
+    if is_banned:
+        await message.reply_text(
+            f"🚫 <b>Access Denied</b>\n\nYou have been banned from using this bot.\n<b>Reason:</b> <code>{html.escape(str(ban_reason))}</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    # Register user in SQLite
+    await db.add_or_update_user(user.id, user.first_name, user.username)
     args = context.args or []
 
     # -------------------------------------------------------------
-    # Deep-link File Retrieval: /start file_<code> or /start <code>
+    # Deep-link File Retrieval: /start file_<code> or /start batch_<id>
     # -------------------------------------------------------------
     if args:
         raw_payload = args[0]
+        bot_user = await context.bot.get_me()
+        bot_username = bot_user.username or "Bot"
+
+        # Check for /start help
+        if raw_payload.lower() == "help":
+            await message.reply_text(
+                Script.HELP_TXT.format(user=html.escape(user.first_name or "User")),
+                reply_markup=get_help_keyboard(),
+                parse_mode=ParseMode.HTML,
+            )
+            return
+
+        # Check for /start plan or /start buy deep links
+        if raw_payload.lower() in ("plan", "plans", "buy", "vip"):
+            from handlers.payment_handlers import plan_command
+            await plan_command(update, context)
+            return
+
+        if raw_payload.startswith("buy_"):
+            try:
+                stars_val = int(raw_payload.removeprefix("buy_"))
+                from handlers.payment_handlers import send_star_invoice
+                sent = await send_star_invoice(
+                    bot=context.bot,
+                    chat_id=chat.id,
+                    user_id=user.id,
+                    stars_amount=stars_val,
+                    db=db,
+                )
+                if sent:
+                    return
+            except (ValueError, IndexError):
+                pass
+            from handlers.payment_handlers import plan_command
+            await plan_command(update, context)
+            return
+
+        # Force Subscription Check
+        if not await is_user_subscribed(context.bot, user.id):
+            await send_fsub_alert(context.bot, chat.id, raw_payload, bot_username)
+            return
+
+        # Paywall / Paid-Only Access Check
+        if not await check_user_access(db, user.id):
+            await send_paywall_alert(context.bot, chat.id, user.first_name)
+            return
+
+        # 1. Batch Link Delivery
+        if raw_payload.startswith("batch_"):
+            batch_id = raw_payload.removeprefix("batch_").strip()
+            await deliver_batch_to_user(
+                bot=context.bot,
+                db=db,
+                job_queue=context.job_queue,
+                chat_id=chat.id,
+                chat_type=chat.type,
+                batch_id=batch_id,
+                bot_username=bot_username,
+            )
+            return
+
+        # 2. Single File Delivery
         file_code = raw_payload.removeprefix("file_").strip()
         file_record = await db.get_file_by_code(file_code)
 
@@ -47,9 +126,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 parse_mode=ParseMode.MARKDOWN,
             )
             return
-
-        bot_user = await context.bot.get_me()
-        bot_username = bot_user.username or "Bot"
 
         await deliver_file_to_user(
             bot=context.bot,
@@ -63,70 +139,48 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     # -------------------------------------------------------------
-    # Standard Welcome Message
+    # Standard Welcome Message & Interactive Menu
     # -------------------------------------------------------------
-    curr_mode = await db.get_delivery_mode()
-    mode_title = (
-        "🔒 Mode 1 (View Only)" if curr_mode.value == "view_only" else "⏱️ Mode 2 (Download Allowed)"
-    )
+    bot_user = await context.bot.get_me()
+    bot_username = bot_user.username or "Bot"
+    bot_name = bot_user.first_name or "TeleBot"
 
-    dev_note = ""
-    if is_developer(user.id):
-        dev_note = (
-            "\n\n👑 **Developer Detected:**\n"
-            "• `/set_mode <view_only|downloadable>` - Switch delivery strategy\n"
-            "• `/set_timer <seconds>` - Configure auto-destruct timer\n"
-            "• `/get_mode` - View current settings\n"
-            "• `/stats` - View bot analytics\n"
-            "• Send any media file to this chat to generate a shareable link!"
+    if chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
+        grp_btn = InlineKeyboardMarkup([
+            [InlineKeyboardButton("ℹ️ Hᴇʟᴘ", url=f"https://t.me/{bot_username}?start=help")],
+            [InlineKeyboardButton("Sᴇᴀʀᴄʜ 🔎", switch_inline_query_current_chat="")],
+        ])
+        await message.reply_text(
+            f"✨ Hello {user.first_name}! Add me as admin to search and filter files.",
+            reply_markup=grp_btn,
         )
+        return
+
+    welcome_text = Script.START_TXT.format(
+        user=html.escape(user.first_name or "User"),
+        bot=html.escape(bot_name),
+    )
+    reply_markup = get_start_keyboard(bot_username)
 
     await message.reply_text(
-        f"👋 **Welcome, {user.first_name}!**\n\n"
-        "This bot delivers files with strict **Content Protection & Privacy Strategies**:\n\n"
-        "• **Mode 1 (View Only):** Prevents forwarding, saving, and copying. Media streams natively.\n"
-        "• **Mode 2 (Download Allowed):** Delivers files with all source metadata stripped, and automatically deletes the file after a short timer to prevent unauthorized circulation.\n\n"
-        f"⚙️ **Active Delivery Mode:** `{mode_title}`"
-        f"{dev_note}",
-        parse_mode=ParseMode.MARKDOWN,
+        welcome_text,
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
     )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /help command."""
+    """Handle /help command with interactive category menus."""
     user = update.effective_user
     if not user:
         return
 
-    text = (
-        "📖 **Bot Commands & Usage Guide**\n\n"
-        "**Finding & Getting Files:**\n"
-        "• `/search <name>` - Search for files by keyword (e.g. `/search python`)\n"
-        "• `/files` or `/list` - View recently indexed files\n"
-        "• Send any word or title directly in chat to search\n"
-        "• `/start <code>` - Retrieve a file by its unique code\n\n"
-        "**General Commands:**\n"
-        "• `/start` - Start the bot and view delivery status\n"
-        "• `/help` - Show this help message\n"
+    await update.effective_message.reply_text(
+        Script.HELP_TXT.format(user=html.escape(user.first_name or "User")),
+        reply_markup=get_help_keyboard(),
+        parse_mode=ParseMode.HTML,
     )
-
-    if is_admin(user.id):
-        text += (
-            "\n**Admin & Storage Commands:**\n"
-            "• `/index_range <start_id> <end_id>` - Bulk scan channel messages (e.g. `/index_range 1 50`)\n"
-            "• `/get_mode` - Display active delivery mode and timer\n"
-            "• `/stats` - Show file count and access statistics\n"
-            "• Send or forward any file to register it and get a share link\n"
-        )
-
-    if is_developer(user.id):
-        text += (
-            "\n**Developer Commands:**\n"
-            "• `/set_mode <view_only|downloadable>` - Toggle between Mode 1 and Mode 2\n"
-            "• `/set_timer <seconds>` - Set auto-destruct duration (e.g. 180 or 300)\n"
-        )
-
-    await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -151,10 +205,15 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def list_files_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show the latest indexed files: /files or /list."""
     message = update.effective_message
+    user = update.effective_user
     if not message:
         return
 
     db: Database = context.bot_data["db"]
+    if user and not await check_user_access(db, user.id):
+        await send_paywall_alert(context.bot, message.chat_id, user.first_name)
+        return
+
     recent = await db.get_recent_files(limit=10)
 
     if not recent:
@@ -166,15 +225,15 @@ async def list_files_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     buttons = []
-    text_lines = ["📁 **Recently Indexed Files:**\n"]
+    text_lines = ["📁 <b>Recently Indexed Files:</b>\n"]
     for i, f in enumerate(recent, 1):
         clean_name = smart_clean_filename(f.get("file_name") or f.get("caption"))
         icon = get_file_type_icon(f.get("file_type", ""), clean_name)
-        text_lines.append(f"{i}. {icon} `{clean_name}`")
+        text_lines.append(f"{i}. {icon} <code>{html.escape(clean_name)}</code>")
         buttons.append([InlineKeyboardButton(f"📥 Get: {clean_name[:28]}", callback_data=f"getfile_{f['file_code']}")])
 
     reply_markup = InlineKeyboardMarkup(buttons)
-    await message.reply_text("\n".join(text_lines), reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    await message.reply_text("\n".join(text_lines), reply_markup=reply_markup, parse_mode=ParseMode.HTML)
 
 
 async def handle_text_search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -200,10 +259,14 @@ async def file_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not query or not query.data:
         return
 
+    db: Database = context.bot_data["db"]
+    if not await check_user_access(db, query.from_user.id):
+        await query.answer("🔒 Premium subscription required! Tap /plan to subscribe.", show_alert=True)
+        return
+
     await query.answer("Fetching file...")
 
     file_code = query.data.removeprefix("getfile_").strip()
-    db: Database = context.bot_data["db"]
     file_record = await db.get_file_by_code(file_code)
 
     if not file_record:
@@ -230,18 +293,22 @@ async def file_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def _perform_file_search(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> None:
     """Helper to query database and either deliver directly (if 1 match) or show buttons."""
     message = update.effective_message
+    user = update.effective_user
     if not message:
         return
 
     db: Database = context.bot_data["db"]
+    if user and not await check_user_access(db, user.id):
+        await send_paywall_alert(context.bot, message.chat_id, user.first_name)
+        return
     matches = await db.search_files(query, limit=8)
 
     if not matches:
         await message.reply_text(
-            f"🔍 No files found matching **\"{query}\"**.\n\n"
+            f"🔍 No files found matching <b>\"{html.escape(query)}\"</b>.\n\n"
             "• Check spelling or try a shorter title/keyword.\n"
-            "• Use `/files` to browse recent files in the catalog.",
-            parse_mode=ParseMode.MARKDOWN,
+            "• Use <code>/files</code> to browse recent files in the catalog.",
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -264,13 +331,13 @@ async def _perform_file_search(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Multiple matches found: present quick-tap callback buttons
     buttons = []
-    text_lines = [f"🔍 **Found {len(matches)} matching files for \"{query}\":**\n"]
+    text_lines = [f"🔍 <b>Found {len(matches)} matching files for \"{html.escape(query)}\":</b>\n"]
 
     for i, f in enumerate(matches, 1):
         clean_name = smart_clean_filename(f.get("file_name") or f.get("caption"))
         icon = get_file_type_icon(f.get("file_type", ""), clean_name)
-        text_lines.append(f"{i}. {icon} `{clean_name}`")
+        text_lines.append(f"{i}. {icon} <code>{html.escape(clean_name)}</code>")
         buttons.append([InlineKeyboardButton(f"📥 Get: {clean_name[:28]}", callback_data=f"getfile_{f['file_code']}")])
 
     reply_markup = InlineKeyboardMarkup(buttons)
-    await message.reply_text("\n".join(text_lines), reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    await message.reply_text("\n".join(text_lines), reply_markup=reply_markup, parse_mode=ParseMode.HTML)

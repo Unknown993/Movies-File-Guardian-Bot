@@ -6,6 +6,7 @@ Admins can upload, forward, or register files to generate secure deep-links.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 from typing import Optional, Tuple
 import telegram.error
@@ -59,10 +60,33 @@ def format_file_size(size_bytes: int) -> str:
     return f"{size_bytes:.2f} TB"
 
 
+def extract_forward_channel_info(message: Message) -> Tuple[Optional[int], Optional[int], Optional[str]]:
+    """
+    Extract (channel_id, message_id, channel_title) from a forwarded channel post.
+    Compatible with both Telegram Bot API 7.0+ (message.forward_origin) and legacy attributes.
+    """
+    fwd_origin = getattr(message, "forward_origin", None)
+    if fwd_origin is not None:
+        origin_chat = getattr(fwd_origin, "chat", None) or getattr(fwd_origin, "sender_chat", None)
+        origin_msg_id = getattr(fwd_origin, "message_id", None)
+        if origin_chat is not None and isinstance(getattr(origin_chat, "id", None), int):
+            return origin_chat.id, origin_msg_id, getattr(origin_chat, "title", None)
+
+    fwd_chat = getattr(message, "forward_from_chat", None)
+    if fwd_chat is not None and isinstance(getattr(fwd_chat, "id", None), int):
+        fwd_msg_id = getattr(message, "forward_from_message_id", None)
+        if not isinstance(fwd_msg_id, int):
+            fwd_msg_id = None
+        return fwd_chat.id, fwd_msg_id, getattr(fwd_chat, "title", None)
+
+    return None, None, None
+
+
 async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Handle incoming media files sent by admins/developer.
-    Stores the file, optionally mirrors to storage channel, and returns shareable link.
+    Handle incoming media files sent or forwarded by admins/developer.
+    Stores the file, optionally mirrors direct uploads to storage channel, and returns shareable link
+    plus one-click channel indexing options when forwarded from a channel.
     """
     message = update.effective_message
     user = update.effective_user
@@ -86,8 +110,11 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     source_chat_id = chat.id
     source_message_id = message.message_id
 
-    # If storage channel is configured, copy the message to the storage channel
-    if STORAGE_CHANNEL_ID:
+    fwd_chat_id, fwd_msg_id, fwd_chat_title = extract_forward_channel_info(message)
+    is_already_in_storage = (chat.id == STORAGE_CHANNEL_ID) or (fwd_chat_id is not None)
+
+    # Only mirror to storage channel if it is a direct upload (not forwarded from a channel)
+    if STORAGE_CHANNEL_ID and not is_already_in_storage:
         try:
             stored_msg = await context.bot.copy_message(
                 chat_id=STORAGE_CHANNEL_ID,
@@ -100,21 +127,31 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
             logger.info("Mirrored file to storage channel %s (msg: %s)", STORAGE_CHANNEL_ID, source_message_id)
         except Exception as e:
             logger.warning("Could not mirror file to storage channel: %s. Using direct chat source.", e)
+    elif fwd_chat_id is not None:
+        source_chat_id = fwd_chat_id
+        if fwd_msg_id:
+            source_message_id = fwd_msg_id
+    elif chat.id == STORAGE_CHANNEL_ID:
+        source_chat_id = STORAGE_CHANNEL_ID
 
     clean_name = smart_clean_filename(file_name or caption)
 
-    # Register in database
-    file_code = await db.register_file(
-        file_id=file_id,
-        file_unique_id=file_unique_id,
-        file_type=file_type,
-        file_name=clean_name,
-        file_size=file_size,
-        caption=caption,
-        source_chat_id=source_chat_id,
-        source_message_id=source_message_id,
-        uploaded_by=user.id,
-    )
+    # Register in database (or reuse existing code if already indexed from that channel post)
+    existing = await db.get_file_by_source_message(source_chat_id, source_message_id)
+    if isinstance(existing, dict) and "file_code" in existing:
+        file_code = existing["file_code"]
+    else:
+        file_code = await db.register_file(
+            file_id=file_id,
+            file_unique_id=file_unique_id,
+            file_type=file_type,
+            file_name=clean_name,
+            file_size=file_size,
+            caption=caption,
+            source_chat_id=source_chat_id,
+            source_message_id=source_message_id,
+            uploaded_by=user.id,
+        )
 
     bot_user = await context.bot.get_me()
     bot_username = bot_user.username or "Bot"
@@ -122,25 +159,40 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     curr_mode = await db.get_delivery_mode()
     mode_text = (
-        "🔒 **Mode 1 (View Only):** Recipients can view/stream, but cannot save or forward."
+        "🔒 <b>Mode 1 (View Only):</b> Recipients can view/stream, but cannot save or forward."
         if curr_mode.value == "view_only"
-        else "⏱️ **Mode 2 (Download Allowed):** Recipients can save, but file will self-destruct shortly after delivery."
+        else "⏱️ <b>Mode 2 (Download Allowed):</b> Recipients can save, but file will self-destruct shortly after delivery."
     )
 
-    reply_keyboard = InlineKeyboardMarkup([
+    buttons = [
         [InlineKeyboardButton("🔗 Test Share Link", url=share_link)],
-        [InlineKeyboardButton("📋 Copy Link", switch_inline_query=file_code)],
-    ])
+        [InlineKeyboardButton("📋 Copy Link", switch_inline_query=str(file_code))],
+    ]
+    if fwd_chat_id is not None and fwd_msg_id is not None:
+        buttons.append([
+            InlineKeyboardButton(
+                f"⚡ Index Channel (Up to #{fwd_msg_id})",
+                callback_data=f"fastidx_{fwd_chat_id}_{fwd_msg_id}",
+            )
+        ])
+
+    reply_keyboard = InlineKeyboardMarkup(buttons)
+
+    channel_line = ""
+    if fwd_chat_id is not None:
+        ch_label = f"{fwd_chat_title} ({fwd_chat_id})" if fwd_chat_title else str(fwd_chat_id)
+        channel_line = f"• <b>Source Channel:</b> <code>{html.escape(ch_label)}</code> (Msg <code>#{source_message_id}</code>)\n"
 
     await message.reply_text(
-        f"✅ **File Registered Successfully!**\n\n"
-        f"• **Code:** `{file_code}`\n"
-        f"• **Name:** `{clean_name}`\n"
-        f"• **Type:** `{file_type}`\n"
-        f"• **Size:** `{format_file_size(file_size)}`\n\n"
-        f"🌐 **Shareable Link:**\n`{share_link}`\n\n"
-        f"ℹ️ **Current Strategy:**\n{mode_text}",
-        parse_mode=ParseMode.MARKDOWN,
+        f"✅ <b>File Registered Successfully!</b>\n\n"
+        f"• <b>Code:</b> <code>{html.escape(str(file_code))}</code>\n"
+        f"• <b>Name:</b> <code>{html.escape(str(clean_name))}</code>\n"
+        f"• <b>Type:</b> <code>{html.escape(str(file_type))}</code>\n"
+        f"• <b>Size:</b> <code>{html.escape(str(format_file_size(file_size)))}</code>\n"
+        f"{channel_line}\n"
+        f"🌐 <b>Shareable Link:</b>\n<code>{html.escape(str(share_link))}</code>\n\n"
+        f"ℹ️ <b>Current Strategy:</b>\n{mode_text}",
+        parse_mode=ParseMode.HTML,
         reply_markup=reply_keyboard,
     )
 
@@ -190,35 +242,20 @@ async def handle_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE
             file_code,
         )
 
-    bot_user = await context.bot.get_me()
-    bot_username = bot_user.username or "Bot"
-    share_link = f"https://t.me/{bot_username}?start=file_{file_code}"
-
-    # Notify developer if configured
-    if DEVELOPER_ID:
-        try:
-            await context.bot.send_message(
-                chat_id=DEVELOPER_ID,
-                text=(
-                    f"📥 **New File Auto-Indexed from Storage Channel!**\n\n"
-                    f"• **Code:** `{file_code}`\n"
-                    f"• **Name:** `{clean_name}`\n"
-                    f"• **Type:** `{file_type}`\n"
-                    f"• **Size:** `{format_file_size(file_size)}`\n"
-                    f"• **Source Msg ID:** `#{post.message_id}`\n\n"
-                    f"🌐 **Shareable Link:**\n`{share_link}`"
-                ),
-                parse_mode=ParseMode.MARKDOWN,
-            )
-        except Exception as e:
-            logger.warning("Could not send auto-index notification to developer: %s", e)
-
-
 async def index_range_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     Bulk scan and register files in the storage channel within a range of message IDs.
-    Usage: /index_range <start_id> <end_id>
+    Delegates directly to high-speed MTProto indexer:
+    - Never posts to storage channel
+    - Never forwards or cleans up messages in PM
+    - Pure, silent database indexing with live progress card in chat
     """
+    from handlers.fast_index_handlers import fast_index_command
+    await fast_index_command(update, context)
+
+
+async def stop_index_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Stop any currently active channel indexing process: /stop_index."""
     message = update.effective_message
     user = update.effective_user
     if not message or not user:
@@ -226,157 +263,48 @@ async def index_range_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if not is_admin(user.id):
         await message.reply_text(
-            "⛔ **Access Denied:** Only administrators can index channel files.",
+            "⛔ **Access Denied:** Only administrators can use this command.",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
-    if not STORAGE_CHANNEL_ID:
+    if not context.bot_data.get("is_indexing"):
         await message.reply_text(
-            "❌ **STORAGE_CHANNEL_ID is not configured in .env!**\n"
-            "Please set your channel ID first.",
+            "ℹ️ **No indexing process is currently running.**",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
-    args = context.args or []
-    if len(args) < 2:
-        await message.reply_text(
-            "ℹ️ **Usage:** `/index_range <start_id> <end_id>`\n\n"
-            "**Example:** `/index_range 1 50`\n"
-            "Scans messages #1 to #50 in your storage channel and automatically registers all media files into the database.",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
+    context.bot_data["cancel_indexing"] = True
+    task = context.bot_data.get("indexing_task")
+    if task and not task.done():
+        task.cancel()
 
-    try:
-        start_id = int(args[0])
-        end_id = int(args[1])
-    except ValueError:
-        await message.reply_text("❌ `start_id` and `end_id` must both be integers.")
-        return
-
-    if start_id <= 0 or end_id <= 0:
-        await message.reply_text("❌ Message IDs must be positive numbers (greater than 0).")
-        return
-
-    if start_id > end_id:
-        await message.reply_text("❌ `start_id` cannot be greater than `end_id`.")
-        return
-
-    total_to_scan = end_id - start_id + 1
-    if total_to_scan > 1000:
-        await message.reply_text(
-            f"⚠️ **Range too large ({total_to_scan} messages).**\n"
-            f"Please scan up to 1,000 messages at a time (e.g. `/index_range {start_id} {start_id + 999}`).",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    db: Database = context.bot_data["db"]
-
-    # Instantly identify which messages in the range are already registered
-    existing_ids = await db.get_existing_message_ids_in_range(STORAGE_CHANNEL_ID, start_id, end_id)
-    already_indexed = len(existing_ids)
-    ids_to_scan = [m for m in range(start_id, end_id + 1) if m not in existing_ids]
-
-    if not ids_to_scan:
-        await message.reply_text(
-            f"✅ **All {total_to_scan} messages in range `#{start_id}` to `#{end_id}` are already indexed!**\n"
-            f"No new messages to scan.",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    status_msg = await message.reply_text(
-        f"⚡ **Starting Fast Channel Scan in `{STORAGE_CHANNEL_ID}`...**\n\n"
-        f"• **Range:** `#{start_id}` to `#{end_id}` ({total_to_scan} total)\n"
-        f"• **Already Indexed:** `{already_indexed}`\n"
-        f"• **Unindexed to Scan:** `{len(ids_to_scan)}`\n\n"
-        f"Please wait a moment...",
+    await message.reply_text(
+        "🛑 **Stopping channel indexing...**\n"
+        "The active indexing process has been requested to halt. All progress up to this moment is saved.",
         parse_mode=ParseMode.MARKDOWN,
     )
 
-    new_indexed = 0
-    semaphore = asyncio.Semaphore(6)
 
-    async def scan_single(msg_id: int) -> bool:
-        async with semaphore:
-            fwd = None
-            try:
-                fwd = await context.bot.forward_message(
-                    chat_id=user.id,
-                    from_chat_id=STORAGE_CHANNEL_ID,
-                    message_id=msg_id,
-                )
-            except telegram.error.RetryAfter as r:
-                await asyncio.sleep(r.retry_after + 1)
-                try:
-                    fwd = await context.bot.forward_message(
-                        chat_id=user.id,
-                        from_chat_id=STORAGE_CHANNEL_ID,
-                        message_id=msg_id,
-                    )
-                except Exception:
-                    return False
-            except telegram.error.TelegramError:
-                return False
+async def stop_indexing_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle click on the inline '🛑 Stop Indexing' button."""
+    query = update.callback_query
+    if not query:
+        return
 
-            if fwd:
-                try:
-                    media_info = extract_media_details(fwd)
-                    if media_info:
-                        file_id, file_unique_id, file_type, file_name, file_size = media_info
-                        caption = fwd.caption or ""
-                        clean_name = smart_clean_filename(file_name or caption)
-                        await db.register_file(
-                            file_id=file_id,
-                            file_unique_id=file_unique_id,
-                            file_type=file_type,
-                            file_name=clean_name,
-                            file_size=file_size,
-                            caption=caption,
-                            source_chat_id=STORAGE_CHANNEL_ID,
-                            source_message_id=msg_id,
-                            uploaded_by=user.id,
-                        )
-                        return True
-                finally:
-                    try:
-                        await fwd.delete()
-                    except Exception:
-                        pass
-            return False
+    user = update.effective_user
+    if not user or not is_admin(user.id):
+        await query.answer("⛔ Only admins can stop indexing.", show_alert=True)
+        return
 
-    chunk_size = 50
-    for i in range(0, len(ids_to_scan), chunk_size):
-        chunk = ids_to_scan[i : i + chunk_size]
-        results = await asyncio.gather(*(scan_single(mid) for mid in chunk))
-        new_indexed += sum(1 for r in results if r)
-        processed = min(i + chunk_size, len(ids_to_scan))
+    if not context.bot_data.get("is_indexing"):
+        await query.answer("ℹ️ Indexing is not currently active.", show_alert=True)
+        return
 
-        if processed < len(ids_to_scan):
-            try:
-                await status_msg.edit_text(
-                    f"⚡ **Fast Scanning in `{STORAGE_CHANNEL_ID}`...**\n\n"
-                    f"• **Progress:** `{processed}/{len(ids_to_scan)}` unindexed messages checked\n"
-                    f"• **✨ New Files Found:** `{new_indexed}`\n"
-                    f"• **🔁 Already in Catalog:** `{already_indexed}`",
-                    parse_mode=ParseMode.MARKDOWN,
-                )
-            except Exception:
-                pass
-        await asyncio.sleep(0.3)
+    context.bot_data["cancel_indexing"] = True
+    task = context.bot_data.get("indexing_task")
+    if task and not task.done():
+        task.cancel()
 
-    skipped_count = len(ids_to_scan) - new_indexed
-
-    await status_msg.edit_text(
-        f"✅ **Fast Channel Scan Complete!**\n\n"
-        f"• **Channel:** `{STORAGE_CHANNEL_ID}`\n"
-        f"• **Range Scanned:** `#{start_id}` to `#{end_id}` ({total_to_scan} messages)\n"
-        f"• **✨ New Files Indexed:** `{new_indexed}`\n"
-        f"• **🔁 Already in Catalog:** `{already_indexed}`\n"
-        f"• **⏭️ Non-Media / Deleted:** `{skipped_count}`\n\n"
-        f"Use `/stats` to view your total file catalog.",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    await query.answer("🛑 Stopping indexing process...", show_alert=True)

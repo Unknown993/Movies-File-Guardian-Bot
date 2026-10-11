@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Set, Optional
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent
+
+# Load environment variables from .env file in project directory
+load_dotenv(BASE_DIR / ".env")
 
 
 class DeliveryMode(str, Enum):
@@ -99,6 +99,36 @@ try:
 except ValueError:
     DEFAULT_AUTO_DELETE_SECONDS = 180
 
+# Force Subscription Channel (e.g. -1001234567890 or @channelname)
+_auth_channel_raw = os.getenv("AUTH_CHANNEL_ID", "").strip()
+AUTH_CHANNEL_ID: Optional[int | str] = None
+if _auth_channel_raw:
+    if _auth_channel_raw.lstrip("-").isdigit():
+        AUTH_CHANNEL_ID = _normalize_channel_id(_auth_channel_raw)
+    else:
+        AUTH_CHANNEL_ID = _auth_channel_raw if _auth_channel_raw.startswith("@") else f"@{_auth_channel_raw}"
+
+# Welcome Greetings Configuration
+WELCOME_TEXT: str = os.getenv(
+    "WELCOME_TEXT",
+    "👋 Hey {user}!\n\nWelcome to **{chat}**! 🎉\nEnjoy your stay and search or request any files you need."
+)
+WELCOME_PIC: Optional[str] = os.getenv("WELCOME_PIC", "").strip() or None
+
+# Force Subscription Text
+FORCE_SUB_TEXT: str = os.getenv(
+    "FORCE_SUB_TEXT",
+    "⚠️ **Channel Membership Required**\n\n"
+    "To access files and use this bot, you must join our official channel.\n"
+    "Please join using the link below, then tap **Try Again**."
+)
+
+# Button Lock Alert
+BUTTON_LOCK_TEXT: str = os.getenv(
+    "BUTTON_LOCK_TEXT",
+    "⚠️ Hey {name}, this search result is not for you! Please search for yourself."
+)
+
 # SQLite Database Path
 DATABASE_PATH: Path = BASE_DIR / os.getenv("DATABASE_PATH", "bot_database.sqlite3")
 
@@ -111,3 +141,20 @@ def is_developer(user_id: int) -> bool:
 def is_admin(user_id: int) -> bool:
     """Check if the given Telegram user ID is an admin or the developer."""
     return user_id in ADMIN_IDS
+
+
+# Paywall / Paid-Only Access Control Configuration
+_paywall_env = os.getenv("PAYWALL_ENABLED", "0").strip().lower()
+DEFAULT_PAYWALL_ENABLED: bool = _paywall_env in ("1", "true", "yes", "on")
+
+PAYWALL_ALERT_TEXT: str = os.getenv(
+    "PAYWALL_ALERT_TEXT",
+    "🔒 <b>Premium Access Required</b>\n\n"
+    "Hey {name}, this bot is currently operating in <b>Paid Members Only</b> mode.\n\n"
+    "✨ <b>Subscriber Privileges:</b>\n"
+    "• ⚡ Instant high-speed file delivery\n"
+    "• 📂 Access to all stored & indexed files\n"
+    "• 🔍 Unlimited keyword & auto-filter searches\n"
+    "• 🚫 Zero ads, no waiting timers\n\n"
+    "💎 Tap below to get instant automated access via Telegram Stars ⭐!"
+)

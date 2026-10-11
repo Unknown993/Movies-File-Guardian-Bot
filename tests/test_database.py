@@ -93,3 +93,60 @@ async def test_database_pending_deletions(tmp_path):
     await db.mark_deletion_done(due[0]["id"], status="deleted")
     due_after = await db.get_due_deletions()
     assert len(due_after) == 0
+
+
+@pytest.mark.asyncio
+async def test_database_duplicate_file_prevention(tmp_path):
+    db_file = tmp_path / "test_dedup.sqlite3"
+    db = Database(db_file)
+    await db.init()
+
+    # 1. Initial registration
+    code1 = await db.register_file(
+        file_id="tg_file_1",
+        file_unique_id="real_uid_abc",
+        file_type="video",
+        file_name="Inception.2010.1080p.mkv",
+        file_size=1500000000,
+        caption="Inception 2010",
+        source_chat_id=-100111222333,
+        source_message_id=100,
+        uploaded_by=999,
+    )
+
+    # 2. Same file_unique_id at a different message ID -> returns existing code
+    code2 = await db.register_file(
+        file_id="tg_file_2",
+        file_unique_id="real_uid_abc",
+        file_type="video",
+        file_name="Different_Name.mkv",
+        file_size=99999,
+        caption="Duplicate UID",
+        source_chat_id=-100111222333,
+        source_message_id=101,
+        uploaded_by=999,
+    )
+    assert code2 == code1
+
+    # 3. Same (LOWER(file_name), file_size) with different UID and message ID -> returns existing code
+    code3 = await db.register_file(
+        file_id="tg_file_3",
+        file_unique_id="real_uid_xyz",
+        file_type="video",
+        file_name="inception.2010.1080p.mkv",
+        file_size=1500000000,
+        caption="Duplicate Name+Size",
+        source_chat_id=-100111222333,
+        source_message_id=102,
+        uploaded_by=999,
+    )
+    assert code3 == code1
+
+    # Verify only 1 file exists in total and in search
+    stats = await db.get_stats()
+    assert stats["total_files"] == 1
+
+    results, total = await db.search_files_paginated("Inception", limit=10, offset=0)
+    assert total == 1
+    assert len(results) == 1
+    assert results[0]["file_code"] == code1

@@ -118,29 +118,55 @@ async def deliver_file_to_user(
             await bot.send_message(
                 chat_id=chat_id,
                 text=(
-                    "⚠️ **File Delivery Restricted to Private DM**\n\n"
-                    "This file is configured with **self-destruct download protection**.\n"
+                    "⚠️ <b>File Delivery Restricted to Private DM</b>\n\n"
+                    "This file is configured with <b>self-destruct download protection</b>.\n"
                     "To prevent unauthorized propagation in groups, files can only be delivered "
                     "in a private direct message or dedicated temporary download channels.\n\n"
                     "👉 Tap the button below to receive this file privately."
                 ),
-                parse_mode="Markdown",
+                parse_mode=ParseMode.HTML,
                 reply_markup=keyboard,
             )
             return None
 
         # Deliver file using copy_message (protect_content=False)
         # copy_message automatically strips all source channel headers / forward attribution!
-        delivered_msg: Message
+        delivered_msg: Optional[Message] = None
         if source_chat_id and source_message_id:
-            delivered_msg = await bot.copy_message(
-                chat_id=chat_id,
-                from_chat_id=source_chat_id,
-                message_id=source_message_id,
-                caption=display_caption,
-                parse_mode=ParseMode.HTML,
-                protect_content=False,
-            )
+            try:
+                delivered_msg = await bot.copy_message(
+                    chat_id=chat_id,
+                    from_chat_id=source_chat_id,
+                    message_id=source_message_id,
+                    caption=display_caption,
+                    parse_mode=ParseMode.HTML,
+                    protect_content=False,
+                )
+            except TelegramError as e:
+                logger.warning("copy_message failed from %s (msg %s): %s", source_chat_id, source_message_id, e)
+                if file_id and not str(file_id).startswith("mtproto_"):
+                    try:
+                        delivered_msg = await _send_media_fallback(
+                            bot=bot,
+                            chat_id=chat_id,
+                            file_id=file_id,
+                            file_type=file_type,
+                            caption=display_caption,
+                            protect_content=False,
+                            parse_mode=ParseMode.HTML,
+                        )
+                    except TelegramError:
+                        delivered_msg = None
+                if delivered_msg is None:
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=(
+                            f"❌ <b>Could not retrieve file from storage channel (<code>{source_chat_id}</code>).</b>\n\n"
+                            f"Make sure <b>@{html.escape(bot_username)}</b> is added as an <b>Administrator</b> in the storage channel."
+                        ),
+                        parse_mode=ParseMode.HTML,
+                    )
+                    return None
         else:
             # Fallback direct send with protect_content=False
             delivered_msg = await _send_media_fallback(
@@ -170,12 +196,12 @@ async def deliver_file_to_user(
         notice_msg = await bot.send_message(
             chat_id=chat_id,
             text=(
-                f"⏳ **Self-Destruct Timer Activated ({time_str})**\n\n"
-                f"• **Download Mode:** Active (Forward header stripped)\n"
-                f"• **Auto-Expiry:** This file will automatically be deleted in **{time_str}**.\n\n"
-                f"⚡ *Please download or save the file to your device now!*"
+                f"⏳ <b>Self-Destruct Timer Activated ({time_str})</b>\n\n"
+                f"• <b>Download Mode:</b> Active (Forward header stripped)\n"
+                f"• <b>Auto-Expiry:</b> This file will automatically be deleted in <b>{time_str}</b>.\n\n"
+                f"⚡ <i>Please download or save the file to your device now!</i>"
             ),
-            parse_mode="Markdown",
+            parse_mode=ParseMode.HTML,
             reply_to_message_id=delivered_msg.message_id,
         )
 
@@ -210,16 +236,42 @@ async def deliver_file_to_user(
     else:
         # Deliver file using copy_message with protect_content=True
         # Prevents saving, copying, or forwarding outside Telegram
-        delivered_msg: Message
+        delivered_msg: Optional[Message] = None
         if source_chat_id and source_message_id:
-            delivered_msg = await bot.copy_message(
-                chat_id=chat_id,
-                from_chat_id=source_chat_id,
-                message_id=source_message_id,
-                caption=display_caption,
-                parse_mode=ParseMode.HTML,
-                protect_content=True,
-            )
+            try:
+                delivered_msg = await bot.copy_message(
+                    chat_id=chat_id,
+                    from_chat_id=source_chat_id,
+                    message_id=source_message_id,
+                    caption=display_caption,
+                    parse_mode=ParseMode.HTML,
+                    protect_content=True,
+                )
+            except TelegramError as e:
+                logger.warning("copy_message failed from %s (msg %s): %s", source_chat_id, source_message_id, e)
+                if file_id and not str(file_id).startswith("mtproto_"):
+                    try:
+                        delivered_msg = await _send_media_fallback(
+                            bot=bot,
+                            chat_id=chat_id,
+                            file_id=file_id,
+                            file_type=file_type,
+                            caption=display_caption,
+                            protect_content=True,
+                            parse_mode=ParseMode.HTML,
+                        )
+                    except TelegramError:
+                        delivered_msg = None
+                if delivered_msg is None:
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=(
+                            f"❌ <b>Could not retrieve file from storage channel (<code>{source_chat_id}</code>).</b>\n\n"
+                            f"Make sure <b>@{html.escape(bot_username)}</b> is added as an <b>Administrator</b> in the storage channel."
+                        ),
+                        parse_mode=ParseMode.HTML,
+                    )
+                    return None
         else:
             # Fallback direct send with protect_content=True
             delivered_msg = await _send_media_fallback(
@@ -238,11 +290,11 @@ async def deliver_file_to_user(
         await bot.send_message(
             chat_id=chat_id,
             text=(
-                "🔒 **Content Protection Active (View Only)**\n\n"
+                "🔒 <b>Content Protection Active (View Only)</b>\n\n"
                 "• Forwarding, copying, and saving to device are disabled.\n"
                 "• You can view, read, and stream media directly within Telegram's native player."
             ),
-            parse_mode="Markdown",
+            parse_mode=ParseMode.HTML,
             reply_to_message_id=delivered_msg.message_id,
             protect_content=True,
         )

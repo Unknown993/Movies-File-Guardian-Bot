@@ -1,0 +1,79 @@
+{
+  "name": "FileGuardian Telegram Bot",
+  "description": "High-speed Telegram content protection, auto-filter, and file delivery bot with dual delivery modes and MTProto indexer.",
+  "keywords": [
+    "telegram",
+    "bot",
+    "python",
+    "telethon",
+    "file-sharing",
+    "content-protection"
+  ],
+  "website": "https://github.com/Unknown993/Movies-File-Guardian-Bot",
+  "repository": "https://github.com/Unknown993/Movies-File-Guardian-Bot",
+  "stack": "heroku-24",
+  "env": {
+    "BOT_TOKEN": {
+      "description": "Your Telegram Bot Token from @BotFather.",
+      "required": true
+    },
+    "DEVELOPER_ID": {
+      "description": "Your numeric Telegram User ID (from @userinfobot or /id).",
+      "required": true
+    },
+    "STORAGE_CHANNEL_ID": {
+      "description": "Numeric Telegram Storage Channel ID (e.g. -1001878553187).",
+      "required": false
+    },
+    "TELEGRAM_API_ID": {
+      "description": "Telegram API ID from https://my.telegram.org for high-speed MTProto indexing.",
+      "required": false
+    },
+    "TELEGRAM_API_HASH": {
+      "description": "Telegram API Hash from https://my.telegram.org.",
+      "required": false
+    },
+    "TELEGRAM_SESSION_STRING": {
+      "description": "Telethon StringSession for Heroku (run python generate_session_string.py locally).",
+      "required": false
+    },
+    "DATABASE_DOWNLOAD_URL": {
+      "description": "Optional direct URL to download pre-existing bot_database.sqlite3 on Heroku boot.",
+      "required": false
+    },
+    "DEFAULT_DELIVERY_MODE": {
+      "description": "Default delivery mode: 'view_only' (Mode 1) or 'downloadable' (Mode 2).",
+      "value": "view_only",
+      "required": false
+    },
+    "DEFAULT_AUTO_DELETE_SECONDS": {
+      "description": "Self-destruct timer for downloadable files in seconds (e.g. 180).",
+      "value": "180",
+      "required": false
+    },
+    "AUTH_CHANNEL_ID": {
+      "description": "Force-subscription channel ID or username (e.g. -1001234567890 or @MyChannel).",
+      "required": false
+    },
+    "ADMIN_IDS": {
+      "description": "Optional comma-separated numeric Telegram User IDs of additional admins.",
+      "required": false
+    },
+    "PAYWALL_ENABLED": {
+      "description": "Set to '1' to enable Paid Members Only mode by default, or '0' for Free Public Access.",
+      "value": "0",
+      "required": false
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}

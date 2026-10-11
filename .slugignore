@@ -1,0 +1,8 @@
+tests/
+.pytest_cache/
+*.log
+*.session
+*.session-journal
+*.sqlite3-wal
+*.sqlite3-shm
+start_bot.bat
